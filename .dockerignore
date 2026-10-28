@@ -1,0 +1,22 @@
+.git/
+.gitignore
+.env
+README.md
+tz.md
+.gemini/
+brain/
+*.log
+
+# Backend
+backend/venv/
+backend/__pycache__/
+backend/*.py[cod]
+backend/staticfiles/
+backend/media/
+backend/*.sqlite3
+
+# Frontend
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/build/
