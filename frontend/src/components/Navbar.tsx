@@ -22,7 +22,6 @@ import {
   LogOut, 
   ChevronDown, 
   CheckCheck,
-  UserCheck,
   Building2,
   Layers
 } from 'lucide-react';
@@ -39,7 +38,6 @@ interface NavbarProps {
   darkMode: boolean;
   onToggleDarkMode: () => void;
   onLogout: () => void;
-  onQuickLogin: (email: string) => void;
   notifications: NotificationItem[];
   onRefreshNotifications: () => void;
 }
@@ -56,7 +54,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   darkMode,
   onToggleDarkMode,
   onLogout,
-  onQuickLogin,
   notifications,
   onRefreshNotifications,
 }) => {
@@ -64,7 +61,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [showLangMenu, setShowLangMenu] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotifMenu, setShowNotifMenu] = useState(false);
-  const [showDemoMenu, setShowDemoMenu] = useState(false);
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 
@@ -189,99 +185,6 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Action Controls & Utilities */}
         <div className="flex items-center gap-2">
-          {/* Quick Demo Switcher for Evaluation */}
-          <div className="relative">
-            <button
-              onClick={() => {
-                setShowDemoMenu(!showDemoMenu);
-                setShowLangMenu(false);
-                setShowNotifMenu(false);
-                setShowUserMenu(false);
-              }}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-950 dark:text-indigo-200 border border-indigo-300 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition-all shadow-sm"
-              title={t.demoAccounts}
-            >
-              <UserCheck className="w-3.5 h-3.5 text-indigo-700 dark:text-indigo-400" />
-              <span className="hidden md:inline">{t.demoAccounts}</span>
-              <ChevronDown className="w-3 h-3 opacity-80" />
-            </button>
-
-            {showDemoMenu && (
-              <div className="absolute right-0 mt-2 w-72 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 shadow-xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
-                <div className="px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-black dark:text-slate-300 border-b border-slate-200 dark:border-slate-800">
-                  {t.switchAccount}
-                </div>
-                <div className="p-1 space-y-1">
-                  <button
-                    onClick={() => {
-                      onQuickLogin('director@company.com');
-                      setShowDemoMenu(false);
-                    }}
-                    className="w-full text-left px-3 py-2 text-xs rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-start gap-2.5"
-                  >
-                    <span className="text-base">👑</span>
-                    <div>
-                      <div className="font-bold text-black dark:text-white">{localizePersonName('Асанов Асан Асанович (Гендиректор)', lang)}</div>
-                      <div className="text-[11px] font-medium text-slate-800 dark:text-slate-300">director@company.com • {localizeDynamicText('Все доски & отчёты', lang)}</div>
-                    </div>
-                  </button>
-                  <button
-                    onClick={() => {
-                      onQuickLogin('manager.it@company.com');
-                      setShowDemoMenu(false);
-                    }}
-                    className="w-full text-left px-3 py-2 text-xs rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-start gap-2.5"
-                  >
-                    <span className="text-base">👨‍💼</span>
-                    <div>
-                      <div className="font-bold text-black dark:text-white">{localizePersonName('Иванов Иван Иванович (Тимлид IT)', lang)}</div>
-                      <div className="text-[11px] font-medium text-slate-800 dark:text-slate-300">manager.it@company.com • {localizeRole('manager', lang)}</div>
-                    </div>
-                  </button>
-                  <button
-                    onClick={() => {
-                      onQuickLogin('dev.it@company.com');
-                      setShowDemoMenu(false);
-                    }}
-                    className="w-full text-left px-3 py-2 text-xs rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-start gap-2.5"
-                  >
-                    <span className="text-base">💻</span>
-                    <div>
-                      <div className="font-bold text-black dark:text-white">{localizePersonName('Бектур Садыков (Senior Dev)', lang)}</div>
-                      <div className="text-[11px] font-medium text-slate-800 dark:text-slate-300">dev.it@company.com • {localizeRole('employee', lang)}</div>
-                    </div>
-                  </button>
-                  <button
-                    onClick={() => {
-                      onQuickLogin('manager.marketing@company.com');
-                      setShowDemoMenu(false);
-                    }}
-                    className="w-full text-left px-3 py-2 text-xs rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-start gap-2.5"
-                  >
-                    <span className="text-base">📈</span>
-                    <div>
-                      <div className="font-bold text-black dark:text-white">{localizePersonName('Ли Вэй / Li Wei (Руководитель маркетинга)', lang)}</div>
-                      <div className="text-[11px] font-medium text-slate-800 dark:text-slate-300">manager.marketing@company.com • {localizeRole('manager', lang)}</div>
-                    </div>
-                  </button>
-                  <button
-                    onClick={() => {
-                      onQuickLogin('smm.marketing@company.com');
-                      setShowDemoMenu(false);
-                    }}
-                    className="w-full text-left px-3 py-2 text-xs rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-start gap-2.5"
-                  >
-                    <span className="text-base">📱</span>
-                    <div>
-                      <div className="font-bold text-black dark:text-white">{localizePersonName('Айпери Жумабекова (SMM / PR)', lang)}</div>
-                      <div className="text-[11px] font-medium text-slate-800 dark:text-slate-300">smm.marketing@company.com • {localizeRole('employee', lang)}</div>
-                    </div>
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-
           {/* Language Switcher */}
           <div className="relative">
             <button
@@ -289,7 +192,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                 setShowLangMenu(!showLangMenu);
                 setShowNotifMenu(false);
                 setShowUserMenu(false);
-                setShowDemoMenu(false);
               }}
               className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-black dark:text-white hover:bg-slate-50 dark:hover:bg-slate-750 transition"
               title={t.language}
@@ -369,7 +271,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                 setShowNotifMenu(!showNotifMenu);
                 setShowLangMenu(false);
                 setShowUserMenu(false);
-                setShowDemoMenu(false);
               }}
               className="relative p-2 rounded-lg text-black hover:text-blue-600 dark:text-slate-200 dark:hover:text-white border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 transition"
               title={t.notifications}
@@ -443,7 +344,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                   setShowUserMenu(!showUserMenu);
                   setShowLangMenu(false);
                   setShowNotifMenu(false);
-                  setShowDemoMenu(false);
                 }}
                 className="flex items-center gap-2 p-1 pl-2 rounded-xl border border-slate-300 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
               >

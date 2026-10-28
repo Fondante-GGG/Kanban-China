@@ -136,15 +136,6 @@ export default function Home() {
     setActiveTab('board');
   };
 
-  const handleQuickLogin = async (email: string) => {
-    try {
-      const res = await api.login(email, 'password123');
-      await handleLoginSuccess(res.user);
-    } catch (err: any) {
-      alert(err.message || 'Ошибка входа');
-    }
-  };
-
   const refreshNotifications = async () => {
     try {
       const res = await api.getNotifications();
@@ -181,7 +172,6 @@ export default function Home() {
         darkMode={darkMode}
         onToggleDarkMode={handleToggleDarkMode}
         onLogout={handleLogout}
-        onQuickLogin={handleQuickLogin}
         notifications={notifications}
         onRefreshNotifications={refreshNotifications}
       />

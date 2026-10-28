@@ -3,8 +3,8 @@
 import React, { useState } from 'react';
 import { api } from '@/lib/api';
 import { User, LanguageCode } from '@/types';
-import { translations, localizePersonName, localizeRole, localizeDynamicText } from '@/lib/i18n';
-import { Kanban, Lock, Mail, ArrowRight, ShieldCheck, UserCheck, Sparkles } from 'lucide-react';
+import { translations } from '@/lib/i18n';
+import { Kanban, Lock, Mail, ArrowRight } from 'lucide-react';
 
 interface LoginModalProps {
   onSuccess: (user: User) => void;
@@ -13,13 +13,14 @@ interface LoginModalProps {
 
 export const LoginModal: React.FC<LoginModalProps> = ({ onSuccess, lang }) => {
   const t = translations[lang] || translations.ru;
-  const [email, setEmail] = useState('director@company.com');
-  const [password, setPassword] = useState('password123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email.trim() || !password) return;
     try {
       setLoading(true);
       setError(null);
@@ -27,20 +28,6 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onSuccess, lang }) => {
       onSuccess(res.user);
     } catch (err: any) {
       setError(err.message || 'Ошибка входа');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleQuickLogin = async (userEmail: string) => {
-    try {
-      setLoading(true);
-      setError(null);
-      setEmail(userEmail);
-      const res = await api.login(userEmail, 'password123');
-      onSuccess(res.user);
-    } catch (err: any) {
-      setError(err.message || 'Ошибка быстрого входа');
     } finally {
       setLoading(false);
     }
@@ -83,6 +70,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onSuccess, lang }) => {
                 placeholder="name@company.com"
                 className="w-full pl-9 pr-3 py-2.5 text-xs sm:text-sm font-semibold rounded-xl border border-slate-400 dark:border-slate-700 bg-white dark:bg-slate-800 text-black dark:text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                 required
+                autoFocus
               />
             </div>
           </div>
@@ -113,54 +101,6 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onSuccess, lang }) => {
             <ArrowRight className="w-4 h-4" />
           </button>
         </form>
-
-        {/* Demo Fast Login Tiles */}
-        <div className="pt-4 border-t border-slate-200 dark:border-slate-800 space-y-2.5">
-          <div className="flex items-center justify-between text-xs font-bold text-black dark:text-slate-200 uppercase tracking-wider">
-            <span className="flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-              {localizeDynamicText('Демонстрационные профили', lang)}
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 gap-1.5 text-xs">
-            <button
-              type="button"
-              onClick={() => handleQuickLogin('director@company.com')}
-              className="w-full p-2.5 rounded-xl border border-amber-300 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/40 text-black dark:text-white hover:bg-amber-100 text-left transition flex items-center justify-between group shadow-sm"
-            >
-              <div>
-                <span className="font-extrabold text-black dark:text-white">👑 {localizeRole('general_director', lang)} ({localizePersonName('Асанов Асан', lang)})</span>
-                <p className="text-[11px] text-black dark:text-slate-200 font-semibold">{localizeDynamicText('Все доски компании • Полный доступ • Аналитика и отчёты', lang)}</p>
-              </div>
-              <span className="text-black dark:text-white font-bold opacity-0 group-hover:opacity-100 transition">{t.login} →</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleQuickLogin('manager.it@company.com')}
-              className="w-full p-2.5 rounded-xl border border-blue-300 dark:border-blue-900/60 bg-blue-50 dark:bg-blue-950/40 text-black dark:text-white hover:bg-blue-100 text-left transition flex items-center justify-between group shadow-sm"
-            >
-              <div>
-                <span className="font-extrabold text-black dark:text-white">👨‍💼 {localizeRole('manager', lang)} ({localizePersonName('Иванов Иван', lang)})</span>
-                <p className="text-[11px] text-black dark:text-slate-200 font-semibold">{localizeDynamicText('Доска своего отдела • Управление задачами • Назначение исполнителей', lang)}</p>
-              </div>
-              <span className="text-black dark:text-white font-bold opacity-0 group-hover:opacity-100 transition">{t.login} →</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleQuickLogin('dev.it@company.com')}
-              className="w-full p-2.5 rounded-xl border border-emerald-300 dark:border-emerald-900/60 bg-emerald-50 dark:bg-emerald-950/40 text-black dark:text-white hover:bg-emerald-100 text-left transition flex items-center justify-between group shadow-sm"
-            >
-              <div>
-                <span className="font-extrabold text-black dark:text-white">💻 {localizeRole('employee', lang)} ({localizePersonName('Бектур Садыков', lang)})</span>
-                <p className="text-[11px] text-black dark:text-slate-200 font-semibold">{localizeDynamicText('Доска своего отдела • Работа с задачами • Обсуждения и чек-листы', lang)}</p>
-              </div>
-              <span className="text-black dark:text-white font-bold opacity-0 group-hover:opacity-100 transition">{t.login} →</span>
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   );
