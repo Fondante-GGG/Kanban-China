@@ -29,7 +29,10 @@ import {
   Trash2,
   AlertCircle,
   Building2,
-  Users
+  Users,
+  ChevronLeft,
+  ChevronRight,
+  GripVertical
 } from 'lucide-react';
 
 interface BoardViewProps {
@@ -84,9 +87,12 @@ export const BoardView: React.FC<BoardViewProps> = ({
   const [newCardDueDate, setNewCardDueDate] = useState('');
   const [newCardAssigneeIds, setNewCardAssigneeIds] = useState<number[]>([]);
 
-  // Drag and Drop State
+  // Drag and Drop State (Cards & Columns)
   const [draggedCardId, setDraggedCardId] = useState<number | null>(null);
   const [dragOverColId, setDragOverColId] = useState<number | null>(null);
+  const [draggedColumnId, setDraggedColumnId] = useState<number | null>(null);
+  const [dragOverColHeaderId, setDragOverColHeaderId] = useState<number | null>(null);
+  const [newColumnPosition, setNewColumnPosition] = useState<string>('end');
 
   useEffect(() => {
     loadBoard();
@@ -202,15 +208,37 @@ export const BoardView: React.FC<BoardViewProps> = ({
   // Add Column
   const handleCreateColumn = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newColumnTitle.trim()) return;
+    if (!newColumnTitle.trim() || !board) return;
+    const titleToCreate = newColumnTitle.trim();
+    const pos = newColumnPosition;
+
     try {
-      await api.createColumn({
+      const createdCol = await api.createColumn({
         board_id: boardId,
-        title: newColumnTitle.trim(),
+        title: titleToCreate,
         language: lang === 'zh-Hans' || lang === 'zh-Hant' ? 'zh' : lang,
       });
+
       setNewColumnTitle('');
       setShowAddColumnModal(false);
+      setNewColumnPosition('end');
+
+      // If user selected a custom position
+      if (pos === 'start') {
+        const reordered = [createdCol, ...board.columns];
+        const columnOrders = reordered.map((c: any, idx: number) => ({ id: c.id, order: idx }));
+        await api.reorderColumns(boardId, columnOrders);
+      } else if (pos.startsWith('before_')) {
+        const targetId = Number(pos.replace('before_', ''));
+        const targetIdx = board.columns.findIndex((c) => c.id === targetId);
+        if (targetIdx !== -1) {
+          const reordered = [...board.columns];
+          reordered.splice(targetIdx, 0, createdCol);
+          const columnOrders = reordered.map((c: any, idx: number) => ({ id: c.id, order: idx }));
+          await api.reorderColumns(boardId, columnOrders);
+        }
+      }
+
       loadBoard();
     } catch (err: any) {
       alert(err.message || 'Ошибка создания раздела');
@@ -281,8 +309,108 @@ export const BoardView: React.FC<BoardViewProps> = ({
   const handleDragOver = (colId: number, e: React.DragEvent) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
-    if (dragOverColId !== colId) {
-      setDragOverColId(colId);
+    if (draggedColumnId) {
+      if (dragOverColHeaderId !== colId) {
+        setDragOverColHeaderId(colId);
+      }
+    } else {
+      if (dragOverColId !== colId) {
+        setDragOverColId(colId);
+      }
+    }
+  };
+
+  // Move column left or right by 1 step
+  const handleMoveColumn = async (columnId: number, direction: 'left' | 'right') => {
+    if (!board || !board.permissions?.can_manage_columns) return;
+    const currentIndex = board.columns.findIndex((c) => c.id === columnId);
+    if (currentIndex === -1) return;
+
+    const targetIndex = direction === 'left' ? currentIndex - 1 : currentIndex + 1;
+    if (targetIndex < 0 || targetIndex >= board.columns.length) return;
+
+    const previousBoard = board;
+    const reordered = [...board.columns];
+    const [movedCol] = reordered.splice(currentIndex, 1);
+    reordered.splice(targetIndex, 0, movedCol);
+
+    const nextColumns = reordered.map((c, idx) => ({
+      ...c,
+      order: idx,
+    }));
+
+    const columnOrders = reordered.map((c, idx) => ({
+      id: c.id,
+      order: idx,
+    }));
+
+    // 1. Optimistic instant reorder (0ms latency)
+    setBoard({
+      ...board,
+      columns: nextColumns,
+    });
+
+    // 2. Broadcast over WebSocket
+    sendEvent({
+      type: 'columns_reordered',
+      board_id: boardId,
+    });
+
+    // 3. Persist to API
+    try {
+      await api.reorderColumns(boardId, columnOrders);
+    } catch (err: any) {
+      setBoard(previousBoard);
+      alert(err.message || 'Ошибка изменения порядка разделов');
+    }
+  };
+
+  // Drag and drop handler for columns
+  const handleColumnDrop = async (targetColId: number) => {
+    const sourceColId = draggedColumnId;
+    setDraggedColumnId(null);
+    setDragOverColId(null);
+    setDragOverColHeaderId(null);
+
+    if (!sourceColId || sourceColId === targetColId || !board) return;
+
+    const sourceIdx = board.columns.findIndex((c) => c.id === sourceColId);
+    const targetIdx = board.columns.findIndex((c) => c.id === targetColId);
+    if (sourceIdx === -1 || targetIdx === -1) return;
+
+    const previousBoard = board;
+    const reordered = [...board.columns];
+    const [movedCol] = reordered.splice(sourceIdx, 1);
+    reordered.splice(targetIdx, 0, movedCol);
+
+    const nextColumns = reordered.map((c, idx) => ({
+      ...c,
+      order: idx,
+    }));
+
+    const columnOrders = reordered.map((c, idx) => ({
+      id: c.id,
+      order: idx,
+    }));
+
+    // 1. Optimistic update
+    setBoard({
+      ...board,
+      columns: nextColumns,
+    });
+
+    // 2. Broadcast via WebSocket
+    sendEvent({
+      type: 'columns_reordered',
+      board_id: boardId,
+    });
+
+    // 3. Persist to API
+    try {
+      await api.reorderColumns(boardId, columnOrders);
+    } catch (err: any) {
+      setBoard(previousBoard);
+      alert(err.message || 'Ошибка перемещения раздела');
     }
   };
 
@@ -362,6 +490,14 @@ export const BoardView: React.FC<BoardViewProps> = ({
   const handleDrop = async (targetColId: number, e: React.DragEvent) => {
     e.preventDefault();
     setDragOverColId(null);
+    setDragOverColHeaderId(null);
+
+    // If moving a column/section:
+    if (draggedColumnId) {
+      handleColumnDrop(targetColId);
+      return;
+    }
+
     const cardId = draggedCardId;
     if (!cardId || !board) return;
 
@@ -604,8 +740,10 @@ export const BoardView: React.FC<BoardViewProps> = ({
 
       {/* Kanban Board Container (Horizontal Scroll) */}
       <div className="flex-1 p-4 sm:p-6 overflow-x-auto flex items-start gap-4 custom-scrollbar">
-        {board.columns.map((column: Column) => {
-          const isDragOver = dragOverColId === column.id;
+        {board.columns.map((column: Column, colIndex: number) => {
+          const isCardDragOver = dragOverColId === column.id && !draggedColumnId;
+          const isColDragOver = dragOverColHeaderId === column.id && !!draggedColumnId;
+          const isBeingDragged = draggedColumnId === column.id;
           const colTitle = getLocalizedText(column, 'title', lang, false);
 
           return (
@@ -614,21 +752,53 @@ export const BoardView: React.FC<BoardViewProps> = ({
               onDragOver={(e) => handleDragOver(column.id, e)}
               onDrop={(e) => handleDrop(column.id, e)}
               className={`w-72 sm:w-80 flex-shrink-0 flex flex-col rounded-2xl max-h-[calc(100vh-10rem)] border backdrop-blur-md transition-all duration-200 shadow-lg ${
-                isDragOver
+                isColDragOver
+                  ? 'bg-blue-100/90 dark:bg-blue-900/40 border-blue-600 ring-4 ring-blue-500/30 scale-[1.01]'
+                  : isCardDragOver
                   ? 'bg-blue-50/90 dark:bg-blue-950/40 border-blue-400 ring-2 ring-blue-500/20'
                   : 'bg-white/85 dark:bg-slate-900/85 border-white/40 dark:border-slate-800/80'
-              }`}
+              } ${isBeingDragged ? 'opacity-40' : ''}`}
             >
-              {/* Column Header */}
-              <div className="p-3.5 pb-2.5 flex items-center justify-between border-b border-slate-300 dark:border-slate-800/60">
-                <div className="flex items-center gap-2 min-w-0">
+              {/* Column Header (Draggable for reordering) */}
+              <div
+                draggable={board.permissions.can_manage_columns}
+                onDragStart={(e) => {
+                  if (!board.permissions.can_manage_columns) return;
+                  setDraggedColumnId(column.id);
+                  e.dataTransfer.setData('text/column-id', column.id.toString());
+                  e.dataTransfer.effectAllowed = 'move';
+                }}
+                onDragEnd={() => {
+                  setDraggedColumnId(null);
+                  setDragOverColHeaderId(null);
+                }}
+                onDragOver={(e) => {
+                  if (draggedColumnId && draggedColumnId !== column.id) {
+                    e.preventDefault();
+                    setDragOverColHeaderId(column.id);
+                  }
+                }}
+                className={`p-3 pb-2.5 flex items-center justify-between border-b border-slate-300 dark:border-slate-800/60 select-none ${
+                  board.permissions.can_manage_columns ? 'cursor-grab active:cursor-grabbing' : ''
+                }`}
+              >
+                <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                  {board.permissions.can_manage_columns && (
+                    <div
+                      className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition p-0.5"
+                      title="Перетащите раздел мышью"
+                    >
+                      <GripVertical className="w-4 h-4" />
+                    </div>
+                  )}
+
                   {editingColumnId === column.id ? (
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1 flex-1">
                       <input
                         type="text"
                         value={editColumnTitle}
                         onChange={(e) => setEditColumnTitle(e.target.value)}
-                        className="text-xs p-1 rounded border border-blue-500 bg-white dark:bg-slate-800 text-black dark:text-white font-bold"
+                        className="text-xs p-1 rounded border border-blue-500 bg-white dark:bg-slate-800 text-black dark:text-white font-bold w-full"
                         autoFocus
                       />
                       <button
@@ -643,16 +813,47 @@ export const BoardView: React.FC<BoardViewProps> = ({
                       {colTitle}
                     </h3>
                   )}
-                  <span className="px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-slate-200 dark:bg-slate-800 text-black dark:text-white">
+                  <span className="px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-slate-200 dark:bg-slate-800 text-black dark:text-white flex-shrink-0">
                     {column.cards_count}
                   </span>
                 </div>
 
                 {/* Column options (for Director & Manager) */}
                 {board.permissions.can_manage_columns && (
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-0.5 flex-shrink-0">
+                    {/* Move Left */}
                     <button
-                      onClick={() => {
+                      type="button"
+                      disabled={colIndex === 0}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleMoveColumn(column.id, 'left');
+                      }}
+                      className="p-1 rounded text-black hover:text-blue-600 disabled:opacity-20 disabled:hover:text-black dark:text-slate-300 dark:hover:text-white dark:disabled:hover:text-slate-300 transition"
+                      title="Сдвинуть раздел влево"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+
+                    {/* Move Right */}
+                    <button
+                      type="button"
+                      disabled={colIndex === board.columns.length - 1}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleMoveColumn(column.id, 'right');
+                      }}
+                      className="p-1 rounded text-black hover:text-blue-600 disabled:opacity-20 disabled:hover:text-black dark:text-slate-300 dark:hover:text-white dark:disabled:hover:text-slate-300 transition"
+                      title="Сдвинуть раздел вправо"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+
+                    {/* Rename */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
                         setEditingColumnId(column.id);
                         setEditColumnTitle(colTitle);
                       }}
@@ -661,8 +862,14 @@ export const BoardView: React.FC<BoardViewProps> = ({
                     >
                       <Edit2 className="w-3.5 h-3.5" />
                     </button>
+
+                    {/* Delete */}
                     <button
-                      onClick={() => handleDeleteColumn(column.id)}
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteColumn(column.id);
+                      }}
                       className="p-1 rounded text-black hover:text-rose-600 dark:text-slate-300 transition"
                       title={t.deleteColumn}
                     >
@@ -829,6 +1036,25 @@ export const BoardView: React.FC<BoardViewProps> = ({
                 <p className="text-[11px] text-slate-800 dark:text-slate-300 font-semibold mt-1">
                   Название автоматически переведётся на русский, китайский и кыргызский языки.
                 </p>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-black dark:text-slate-100 uppercase tracking-wider block mb-1">
+                  Расположение раздела
+                </label>
+                <select
+                  value={newColumnPosition}
+                  onChange={(e) => setNewColumnPosition(e.target.value)}
+                  className="w-full text-xs sm:text-sm p-3 rounded-xl border border-slate-400 dark:border-slate-700 bg-white dark:bg-slate-800 text-black dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                >
+                  <option value="end">В конец списка (по умолчанию)</option>
+                  <option value="start">В самое начало</option>
+                  {board?.columns?.map((col) => (
+                    <option key={col.id} value={`before_${col.id}`}>
+                      Перед разделом: {getLocalizedText(col, 'title', lang, false)}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="flex justify-end gap-2 pt-2">
