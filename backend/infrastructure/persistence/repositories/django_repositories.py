@@ -70,7 +70,17 @@ class DjangoUserRepository(IUserRepository):
 
     def get_assigned_board_id(self, user_id: int) -> Optional[int]:
         bm = BoardMemberModel.objects.filter(user_id=user_id).first()
-        return bm.board_id if bm else None
+        if bm:
+            return bm.board_id
+        try:
+            u = UserModel.objects.filter(id=user_id).first()
+            if u and u.department_id:
+                b = BoardModel.objects.filter(department_id=u.department_id).first()
+                if b:
+                    return b.id
+        except Exception:
+            pass
+        return None
 
 
 class DjangoDepartmentRepository(IDepartmentRepository):

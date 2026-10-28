@@ -20,10 +20,10 @@ class AccessPolicyService:
         """Creating, renaming, reordering or deleting columns (sections)"""
         if user.is_general_director:
             return
-        if user.is_manager and user_assigned_board_id == board_id:
+        if user.is_manager and (user_assigned_board_id == board_id or user_assigned_board_id is None):
             return
         raise PermissionDeniedException(
-            "Access denied: Only General Director and Department Manager can manage sections."
+            "Access denied: Only General Director and Department Managers can manage and move sections. Employees cannot."
         )
 
     @staticmethod

@@ -171,11 +171,18 @@ class GetBoardDetailsUseCase:
                         "system_role": user.role,
                     })
 
+            is_manager_of_board = current_user.is_manager and (
+                assigned_board_id == board.id or
+                assigned_board_id is None or
+                (current_user.department_id and current_user.department_id == board.department_id) or
+                any(m.user_id == current_user.id and m.role == "manager" for m in members)
+            )
+
             user_permissions = {
-                "can_manage_columns": current_user.is_general_director or (current_user.is_manager and assigned_board_id == board.id),
-                "can_manage_cards": current_user.is_general_director or (current_user.is_manager and assigned_board_id == board.id),
-                "can_move_cards": current_user.is_general_director or assigned_board_id == board.id,
-                "can_comment": current_user.is_general_director or assigned_board_id == board.id,
+                "can_manage_columns": current_user.is_general_director or is_manager_of_board,
+                "can_manage_cards": current_user.is_general_director or is_manager_of_board,
+                "can_move_cards": current_user.is_general_director or assigned_board_id == board.id or current_user.is_manager or current_user.is_employee,
+                "can_comment": current_user.is_general_director or assigned_board_id == board.id or current_user.is_manager or current_user.is_employee,
             }
 
             return {

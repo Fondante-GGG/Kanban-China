@@ -80,11 +80,19 @@ class CreateUserUseCase:
             created_user = self.uow.users.create(user)
 
             # Assign to board if specified and not general director (or even if director)
-            if dto.board_id:
+            target_board_id = dto.board_id
+            if not target_board_id and dto.department_id:
+                all_b = self.uow.boards.list_all()
+                for b in all_b:
+                    if b.department_id == dto.department_id:
+                        target_board_id = b.id
+                        break
+
+            if target_board_id:
                 # Update board membership
-                board = self.uow.boards.get_by_id(dto.board_id)
+                board = self.uow.boards.get_by_id(target_board_id)
                 if board:
-                    members = self.uow.boards.get_members(dto.board_id)
+                    members = self.uow.boards.get_members(target_board_id)
                     current_mgr = None
                     emp_ids = []
                     for m in members:
@@ -98,7 +106,7 @@ class CreateUserUseCase:
                     elif dto.role == RoleType.EMPLOYEE.value and created_user.id not in emp_ids:
                         emp_ids.append(created_user.id)
 
-                    self.uow.boards.set_members(dto.board_id, current_mgr, emp_ids)
+                    self.uow.boards.set_members(target_board_id, current_mgr, emp_ids)
 
             self.uow.commit()
 
