@@ -11,7 +11,13 @@ from backend.application.interfaces.repositories import (
     ICommentRepository,
     IAttachmentRepository,
     IActivityLogRepository,
-    INotificationRepository
+    INotificationRepository,
+    IOfficeRepository,
+    IWorkScheduleRepository,
+    IAttendanceRecordRepository,
+    IAbsenceRepository,
+    ILocationLogRepository,
+    IConsentRepository
 )
 
 
@@ -26,6 +32,12 @@ class IUnitOfWork(ABC):
     attachments: IAttachmentRepository
     activity_logs: IActivityLogRepository
     notifications: INotificationRepository
+    offices: IOfficeRepository
+    work_schedules: IWorkScheduleRepository
+    attendance_records: IAttendanceRecordRepository
+    absences: IAbsenceRepository
+    location_logs: ILocationLogRepository
+    consents: IConsentRepository
 
     @abstractmethod
     def __enter__(self) -> "IUnitOfWork":

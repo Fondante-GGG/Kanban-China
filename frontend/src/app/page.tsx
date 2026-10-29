@@ -7,13 +7,15 @@ import { Navbar } from '@/components/Navbar';
 import { BoardView } from '@/components/BoardView';
 import { ReportsView } from '@/components/ReportsView';
 import { AdminView } from '@/components/AdminView';
+import { AttendanceView } from '@/components/AttendanceView';
+import { AttendanceWidget } from '@/components/AttendanceWidget';
 import { LoginModal } from '@/components/LoginModal';
 import { translations } from '@/lib/i18n';
 import { Kanban, Layers } from 'lucide-react';
 
 export default function Home() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [activeTab, setActiveTab] = useState<'board' | 'reports' | 'admin'>('board');
+  const [activeTab, setActiveTab] = useState<'board' | 'reports' | 'admin' | 'attendance'>('board');
   const [boards, setBoards] = useState<BoardSummary[]>([]);
   const [selectedBoardId, setSelectedBoardId] = useState<number | null>(null);
   const [lang, setLang] = useState<LanguageCode>('ru');
@@ -176,6 +178,15 @@ export default function Home() {
         onRefreshNotifications={refreshNotifications}
       />
 
+      {/* Main page attendance widget (Section 4.9: buttons 'Пришёл' & 'Ушёл' for all employees) */}
+      {currentUser && (
+        <AttendanceWidget
+          currentUser={currentUser}
+          lang={lang}
+          onStatusChange={() => currentUser && loadBoardsAndNotifications(currentUser)}
+        />
+      )}
+
       <main className="flex-1 flex flex-col">
         {currentUser && selectedBoardId && activeTab === 'board' && (
           <BoardView
@@ -202,6 +213,10 @@ export default function Home() {
 
         {currentUser && activeTab === 'reports' && (
           <ReportsView lang={lang} currentUser={currentUser} />
+        )}
+
+        {currentUser && activeTab === 'attendance' && (
+          <AttendanceView lang={lang} currentUser={currentUser} />
         )}
 
         {currentUser && activeTab === 'admin' && (

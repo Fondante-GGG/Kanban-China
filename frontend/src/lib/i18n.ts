@@ -82,6 +82,39 @@ export interface Translations {
   noBoardsFound: string;
   changeBackground: string;
   selectLanguageVariant: string;
+
+  // Attendance & Time Tracking
+  attendance: string;
+  checkIn: string;
+  checkOut: string;
+  leaveBreak: string;
+  resumeBreak: string;
+  inOffice: string;
+  outsideOffice: string;
+  onBreak: string;
+  notCheckedIn: string;
+  timesheet: string;
+  myAttendance: string;
+  teamTimesheet: string;
+  officesAndSchedules: string;
+  lateArrivals: string;
+  earlyDepartures: string;
+  workedHours: string;
+  vacation: string;
+  sickLeave: string;
+  businessTrip: string;
+  dayOff: string;
+  lunch: string;
+  businessBreak: string;
+  personalBreak: string;
+  otherBreak: string;
+  editRecord: string;
+  mandatoryReason: string;
+  locationConsent: string;
+  consentGranted: string;
+  grantConsent: string;
+  revokeConsent: string;
+  radiusMeters: string;
 }
 
 export const translations: Record<LanguageCode, Translations> = {
@@ -167,6 +200,37 @@ export const translations: Record<LanguageCode, Translations> = {
     noBoardsFound: "Нет доступных досок",
     changeBackground: "Цвет фона",
     selectLanguageVariant: "Вариант китайского языка",
+    attendance: "Учёт времени",
+    checkIn: "Пришёл",
+    checkOut: "Ушёл",
+    leaveBreak: "Отлучился",
+    resumeBreak: "Вернулся",
+    inOffice: "В офисе",
+    outsideOffice: "Вне офиса",
+    onBreak: "На перерыве",
+    notCheckedIn: "Не на смене",
+    timesheet: "Табель",
+    myAttendance: "Мои отметки",
+    teamTimesheet: "Табель сотрудников",
+    officesAndSchedules: "Офисы и графики",
+    lateArrivals: "Опоздания",
+    earlyDepartures: "Ранние уходы",
+    workedHours: "Отработано часов",
+    vacation: "Отпуск",
+    sickLeave: "Больничный",
+    businessTrip: "Командировка",
+    dayOff: "Выходной",
+    lunch: "Обед",
+    businessBreak: "По делам компании",
+    personalBreak: "Личное",
+    otherBreak: "Другое",
+    editRecord: "Исправить отметку",
+    mandatoryReason: "Обязательная причина правки",
+    locationConsent: "Согласие на отслеживание геопозиции",
+    consentGranted: "Согласие предоставлено",
+    grantConsent: "Дать согласие",
+    revokeConsent: "Отозвать согласие",
+    radiusMeters: "Радиус (м)",
   },
   'zh-Hans': {
     appName: "Yrys 看板系统",
@@ -250,6 +314,37 @@ export const translations: Record<LanguageCode, Translations> = {
     noBoardsFound: "暂无被授权的看板",
     changeBackground: "更换看板背景",
     selectLanguageVariant: "选择中文版本",
+    attendance: "考勤与工时",
+    checkIn: "签到 (上班)",
+    checkOut: "签退 (下班)",
+    leaveBreak: "暂离/外出",
+    resumeBreak: "返回工位",
+    inOffice: "在办公室",
+    outsideOffice: "超出办公区",
+    onBreak: "暂离休整中",
+    notCheckedIn: "尚未签到",
+    timesheet: "考勤工时表",
+    myAttendance: "我的打卡记录",
+    teamTimesheet: "部门员工考勤表",
+    officesAndSchedules: "办公区与排班",
+    lateArrivals: "迟到",
+    earlyDepartures: "早退",
+    workedHours: "实计工时",
+    vacation: "年假",
+    sickLeave: "病假",
+    businessTrip: "出差",
+    dayOff: "休息日",
+    lunch: "午休就餐",
+    businessBreak: "公事外出",
+    personalBreak: "私事外出",
+    otherBreak: "其他事由",
+    editRecord: "更正打卡时间",
+    mandatoryReason: "请填写修改原因（必填）",
+    locationConsent: "工作时间位置授权协议",
+    consentGranted: "已授权位置跟踪",
+    grantConsent: "签署同意书",
+    revokeConsent: "撤回授权",
+    radiusMeters: "有效半径 (米)",
   },
   'zh-Hant': {
     appName: "Yrys 看板系統",
@@ -333,6 +428,37 @@ export const translations: Record<LanguageCode, Translations> = {
     noBoardsFound: "目前尚無授權看板",
     changeBackground: "調整底色主題",
     selectLanguageVariant: "中文切換選項",
+    attendance: "考勤與工時",
+    checkIn: "簽到 (上班)",
+    checkOut: "簽退 (下班)",
+    leaveBreak: "暫離/外出",
+    resumeBreak: "返回工位",
+    inOffice: "在辦公室",
+    outsideOffice: "超出辦公區",
+    onBreak: "暫離休整中",
+    notCheckedIn: "尚未簽到",
+    timesheet: "考勤工時表",
+    myAttendance: "我的打卡記錄",
+    teamTimesheet: "部門員工考勤表",
+    officesAndSchedules: "辦公區與排班",
+    lateArrivals: "遲到",
+    earlyDepartures: "早退",
+    workedHours: "實計工時",
+    vacation: "年假",
+    sickLeave: "病假",
+    businessTrip: "出差",
+    dayOff: "休息日",
+    lunch: "午休就餐",
+    businessBreak: "公事外出",
+    personalBreak: "私事外出",
+    otherBreak: "其他事由",
+    editRecord: "更正打卡時間",
+    mandatoryReason: "請填寫修改原因（必填）",
+    locationConsent: "工作時間位置授權協議",
+    consentGranted: "已授權位置跟蹤",
+    grantConsent: "簽署同意書",
+    revokeConsent: "撤回授權",
+    radiusMeters: "有效半徑 (公尺)",
   },
   ky: {
     appName: "Yrys Канбан",
@@ -416,6 +542,37 @@ export const translations: Record<LanguageCode, Translations> = {
     noBoardsFound: "Жеткиликтүү такталар жок",
     changeBackground: "Фондун түсү",
     selectLanguageVariant: "Кытай тилинин түрү",
+    attendance: "Убакытты эсептөө",
+    checkIn: "Келди",
+    checkOut: "Кетти",
+    leaveBreak: "Чыгып кетти",
+    resumeBreak: "Кайтты",
+    inOffice: "Офисте",
+    outsideOffice: "Офистен тышкары",
+    onBreak: "Тыныгууда",
+    notCheckedIn: "Сменада эмес",
+    timesheet: "Табель",
+    myAttendance: "Менин белгилерим",
+    teamTimesheet: "Кызматкерлердин табели",
+    officesAndSchedules: "Офистер жана графиктер",
+    lateArrivals: "Кечикүүлөр",
+    earlyDepartures: "Эрте кетүүлөр",
+    workedHours: "Иштелген сааттар",
+    vacation: "Эмгек өргүүсү",
+    sickLeave: "Оору өргүүсү",
+    businessTrip: "Иш сапар",
+    dayOff: "Дем алыш күн",
+    lunch: "Түшкү тамак",
+    businessBreak: "Компаниянын жумушу боюнча",
+    personalBreak: "Жеке иштер боюнча",
+    otherBreak: "Башка себеп",
+    editRecord: "Белгини оңдоо",
+    mandatoryReason: "Оңдоонун милдеттүү себеби",
+    locationConsent: "Геолокацияны көзөмөлдөөгө макулдук",
+    consentGranted: "Макулдук берилген",
+    grantConsent: "Макулдук берүү",
+    revokeConsent: "Макулдукту артка кайтаруу",
+    radiusMeters: "Радиус (метр)",
   }
 };
 

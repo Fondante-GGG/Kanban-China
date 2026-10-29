@@ -1,7 +1,9 @@
 from abc import ABC, abstractmethod
 from typing import Optional, List
+from datetime import datetime
 from backend.domain.entities import (
-    User, Department, Board, BoardMember, Column, Card, ChecklistItem, Comment, Attachment, ActivityLog, Notification
+    User, Department, Board, BoardMember, Column, Card, ChecklistItem, Comment, Attachment, ActivityLog, Notification,
+    Office, WorkSchedule, AttendanceRecord, Absence, LocationLog, Consent
 )
 
 
@@ -235,3 +237,139 @@ class INotificationRepository(ABC):
     @abstractmethod
     def mark_as_read(self, notification_id: int, user_id: int) -> None:
         pass
+
+
+class IOfficeRepository(ABC):
+    @abstractmethod
+    def get_by_id(self, office_id: int) -> Optional[Office]:
+        pass
+
+    @abstractmethod
+    def list_all(self) -> List[Office]:
+        pass
+
+    @abstractmethod
+    def create(self, office: Office) -> Office:
+        pass
+
+    @abstractmethod
+    def update(self, office: Office) -> Office:
+        pass
+
+    @abstractmethod
+    def delete(self, office_id: int) -> bool:
+        pass
+
+
+class IWorkScheduleRepository(ABC):
+    @abstractmethod
+    def get_by_id(self, schedule_id: int) -> Optional[WorkSchedule]:
+        pass
+
+    @abstractmethod
+    def get_for_user(self, user_id: int, department_id: Optional[int] = None) -> Optional[WorkSchedule]:
+        pass
+
+    @abstractmethod
+    def list_all(self) -> List[WorkSchedule]:
+        pass
+
+    @abstractmethod
+    def create(self, schedule: WorkSchedule) -> WorkSchedule:
+        pass
+
+    @abstractmethod
+    def update(self, schedule: WorkSchedule) -> WorkSchedule:
+        pass
+
+    @abstractmethod
+    def delete(self, schedule_id: int) -> bool:
+        pass
+
+
+class IAttendanceRecordRepository(ABC):
+    @abstractmethod
+    def get_by_id(self, record_id: int) -> Optional[AttendanceRecord]:
+        pass
+
+    @abstractmethod
+    def get_latest_for_user(self, user_id: int) -> Optional[AttendanceRecord]:
+        pass
+
+    @abstractmethod
+    def list_for_user_date(self, user_id: int, date_obj) -> List[AttendanceRecord]:
+        pass
+
+    @abstractmethod
+    def list_records(
+        self,
+        user_ids: Optional[List[int]] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+    ) -> List[AttendanceRecord]:
+        pass
+
+    @abstractmethod
+    def create(self, record: AttendanceRecord) -> AttendanceRecord:
+        pass
+
+    @abstractmethod
+    def update(self, record: AttendanceRecord) -> AttendanceRecord:
+        pass
+
+
+class IAbsenceRepository(ABC):
+    @abstractmethod
+    def get_by_id(self, absence_id: int) -> Optional[Absence]:
+        pass
+
+    @abstractmethod
+    def get_active_break_for_user(self, user_id: int) -> Optional[Absence]:
+        pass
+
+    @abstractmethod
+    def get_active_day_status_for_user(self, user_id: int, date_obj) -> Optional[Absence]:
+        pass
+
+    @abstractmethod
+    def list_absences(
+        self,
+        user_ids: Optional[List[int]] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+        category: Optional[str] = None
+    ) -> List[Absence]:
+        pass
+
+    @abstractmethod
+    def create(self, absence: Absence) -> Absence:
+        pass
+
+    @abstractmethod
+    def update(self, absence: Absence) -> Absence:
+        pass
+
+
+class ILocationLogRepository(ABC):
+    @abstractmethod
+    def create(self, log: LocationLog) -> LocationLog:
+        pass
+
+    @abstractmethod
+    def list_for_user(self, user_id: int, limit: int = 50) -> List[LocationLog]:
+        pass
+
+    @abstractmethod
+    def cleanup_older_than(self, days: int = 90) -> int:
+        pass
+
+
+class IConsentRepository(ABC):
+    @abstractmethod
+    def get_for_user(self, user_id: int) -> Optional[Consent]:
+        pass
+
+    @abstractmethod
+    def create_or_update(self, user_id: int, is_granted: bool, consent_version: str = "1.0", consent_text: str = "") -> Consent:
+        pass
+

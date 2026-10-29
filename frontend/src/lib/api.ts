@@ -342,6 +342,155 @@ class ApiClient {
       body: JSON.stringify({ text, variant }),
     });
   }
+
+  // Attendance & Time Tracking (Section 4.9)
+  async getAttendanceStatus() {
+    return this.request<any>('/attendance/status');
+  }
+
+  async checkIn(data: { latitude?: number; longitude?: number; accuracy_meters?: number; office_id?: number }) {
+    return this.request<{ success: boolean; message: string; record_id: number; timestamp: string; distance_meters: number }>('/attendance/check-in', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async checkOut(data: { latitude?: number; longitude?: number; accuracy_meters?: number; office_id?: number }) {
+    return this.request<{ success: boolean; message: string; record_id: number; timestamp: string; distance_meters: number }>('/attendance/check-out', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async leaveAbsence(data: { absence_type: string; reason?: string; comment?: string }) {
+    return this.request<{ success: boolean; message: string; absence_id: number; start_time: string }>('/attendance/leave', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async resumeAbsence() {
+    return this.request<{ success: boolean; message: string; duration_minutes?: number }>('/attendance/resume', {
+      method: 'POST',
+    });
+  }
+
+  async sendLocationLog(data: { latitude: number; longitude: number; accuracy_meters?: number; source?: string }) {
+    return this.request<any>('/attendance/location-log', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getAttendanceRecords(params?: { user_id?: number; department_id?: number; start_date?: string; end_date?: string }) {
+    const query = new URLSearchParams();
+    if (params?.user_id) query.append('user_id', params.user_id.toString());
+    if (params?.department_id) query.append('department_id', params.department_id.toString());
+    if (params?.start_date) query.append('start_date', params.start_date);
+    if (params?.end_date) query.append('end_date', params.end_date);
+    return this.request<{ records: any[] }>(`/attendance/records?${query.toString()}`);
+  }
+
+  async editAttendanceRecord(recordId: number, data: { timestamp: string; edit_reason: string }) {
+    return this.request<any>(`/attendance/records/${recordId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getConsent() {
+    return this.request<{ is_granted: boolean; consent_version: string; granted_at?: string; revoked_at?: string }>('/attendance/consent');
+  }
+
+  async setConsent(data: { is_granted: boolean; consent_version?: string; consent_text?: string }) {
+    return this.request<any>('/attendance/consent', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async createDayStatus(data: { user_id?: number; absence_type: string; start_time?: string; end_time?: string; reason?: string; comment?: string }) {
+    return this.request<any>('/attendance/day-status', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getOffices() {
+    return this.request<{ offices: any[] }>('/attendance/offices');
+  }
+
+  async createOffice(data: any) {
+    return this.request<any>('/attendance/offices', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateOffice(officeId: number, data: any) {
+    return this.request<any>(`/attendance/offices/${officeId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteOffice(officeId: number) {
+    return this.request<any>(`/attendance/offices/${officeId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getSchedules() {
+    return this.request<{ schedules: any[] }>('/attendance/schedules');
+  }
+
+  async createSchedule(data: any) {
+    return this.request<any>('/attendance/schedules', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getAttendanceTimesheet(year?: number, month?: number, departmentId?: number, userId?: number) {
+    const query = new URLSearchParams();
+    if (year) query.append('year', year.toString());
+    if (month) query.append('month', month.toString());
+    if (departmentId) query.append('department_id', departmentId.toString());
+    if (userId) query.append('user_id', userId.toString());
+    return this.request<any>(`/attendance/reports/timesheet?${query.toString()}`);
+  }
+
+  async downloadAttendanceExport(format: 'xlsx' | 'docx' | 'pdf', year?: number, month?: number, departmentId?: number, userId?: number) {
+    const query = new URLSearchParams({ format });
+    if (year) query.append('year', year.toString());
+    if (month) query.append('month', month.toString());
+    if (departmentId) query.append('department_id', departmentId.toString());
+    if (userId) query.append('user_id', userId.toString());
+
+    const token = this.getToken();
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const res = await fetch(`${API_BASE_URL}/attendance/reports/export?${query.toString()}`, {
+      headers,
+    });
+
+    if (!res.ok) {
+      throw new Error(`Export download failed: ${res.status}`);
+    }
+
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `timesheet_${year || new Date().getFullYear()}_${month || new Date().getMonth() + 1}.${format}`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  }
 }
 
 export const api = new ApiClient();

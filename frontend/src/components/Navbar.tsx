@@ -23,13 +23,14 @@ import {
   ChevronDown, 
   CheckCheck,
   Building2,
-  Layers
+  Layers,
+  Clock
 } from 'lucide-react';
 
 interface NavbarProps {
   currentUser: User | null;
-  activeTab: 'board' | 'reports' | 'admin';
-  setActiveTab: (tab: 'board' | 'reports' | 'admin') => void;
+  activeTab: 'board' | 'reports' | 'admin' | 'attendance';
+  setActiveTab: (tab: 'board' | 'reports' | 'admin' | 'attendance') => void;
   boards: BoardSummary[];
   selectedBoardId: number | null;
   onSelectBoard: (boardId: number) => void;
@@ -151,6 +152,18 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               <Layers className="w-4 h-4" />
               {t.board}
+            </button>
+
+            <button
+              onClick={() => setActiveTab('attendance')}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${
+                activeTab === 'attendance'
+                  ? 'bg-white dark:bg-slate-900 text-black dark:text-white shadow-sm'
+                  : 'text-black dark:text-white hover:opacity-80'
+              }`}
+            >
+              <Clock className="w-4 h-4" />
+              {t.attendance}
             </button>
 
             {currentUser.role === 'general_director' && (

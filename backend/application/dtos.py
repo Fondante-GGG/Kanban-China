@@ -126,3 +126,83 @@ class ReportFilterDTO:
     end_date: Optional[str] = None
     department_id: Optional[int] = None
     user_id: Optional[int] = None
+
+
+@dataclass
+class CheckInDTO:
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    accuracy_meters: Optional[float] = None
+    office_id: Optional[int] = None
+    ip_address: Optional[str] = None
+
+
+@dataclass
+class CheckOutDTO:
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    accuracy_meters: Optional[float] = None
+    office_id: Optional[int] = None
+    ip_address: Optional[str] = None
+
+
+@dataclass
+class LeaveAbsenceDTO:
+    absence_type: str  # lunch, business, personal, other
+    reason: str = ""
+    comment: str = ""
+
+
+@dataclass
+class LocationLogDTO:
+    latitude: float
+    longitude: float
+    accuracy_meters: Optional[float] = None
+    source: str = "gps"
+
+
+@dataclass
+class AttendanceRecordEditDTO:
+    timestamp: str  # ISO timestamp
+    edit_reason: str
+
+
+@dataclass
+class ConsentDTO:
+    is_granted: bool
+    consent_version: str = "1.0"
+    consent_text: str = ""
+
+
+@dataclass
+class DayStatusDTO:
+    user_id: int
+    absence_type: str  # vacation, sick_leave, business_trip, day_off
+    start_time: str
+    end_time: Optional[str] = None
+    reason: str = ""
+    comment: str = ""
+
+
+@dataclass
+class OfficeDTO:
+    name: str
+    address: str = ""
+    latitude: float = 42.8746
+    longitude: float = 74.5698
+    radius_meters: int = 100
+    ip_subnet: str = ""
+    is_ip_check_enabled: bool = False
+
+
+@dataclass
+class WorkScheduleDTO:
+    name: str
+    user_id: Optional[int] = None
+    department_id: Optional[int] = None
+    start_time: str = "09:00"
+    end_time: str = "18:00"
+    break_duration_minutes: int = 60
+    timezone: str = "Asia/Bishkek"
+    is_active: bool = True
+

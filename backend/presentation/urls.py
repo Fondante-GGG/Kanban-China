@@ -12,6 +12,13 @@ from backend.presentation.api.attachment_views import attachments_upload_view, a
 from backend.presentation.api.notification_views import notifications_list_view
 from backend.presentation.api.report_views import analytics_report_view, export_report_view
 from backend.presentation.api.translate_views import convert_chinese_view, translate_text_view
+from backend.presentation.api.attendance_views import (
+    attendance_status_view, check_in_view, check_out_view, leave_absence_view,
+    resume_absence_view, location_log_view, attendance_records_view,
+    attendance_record_detail_view, consent_view, day_status_view,
+    offices_view, office_detail_view, work_schedules_view,
+    attendance_timesheet_view, attendance_export_view
+)
 
 urlpatterns = [
     # Auth
@@ -62,4 +69,21 @@ urlpatterns = [
     # Translation
     path("translate/convert-chinese", convert_chinese_view, name="api-convert-chinese"),
     path("translate/text", translate_text_view, name="api-translate-text"),
+
+    # Attendance & Geolocation (Section 4.9)
+    path("attendance/status", attendance_status_view, name="api-attendance-status"),
+    path("attendance/check-in", check_in_view, name="api-attendance-check-in"),
+    path("attendance/check-out", check_out_view, name="api-attendance-check-out"),
+    path("attendance/leave", leave_absence_view, name="api-attendance-leave"),
+    path("attendance/resume", resume_absence_view, name="api-attendance-resume"),
+    path("attendance/location-log", location_log_view, name="api-attendance-location-log"),
+    path("attendance/records", attendance_records_view, name="api-attendance-records"),
+    path("attendance/records/<int:record_id>", attendance_record_detail_view, name="api-attendance-record-detail"),
+    path("attendance/consent", consent_view, name="api-attendance-consent"),
+    path("attendance/day-status", day_status_view, name="api-attendance-day-status"),
+    path("attendance/offices", offices_view, name="api-attendance-offices"),
+    path("attendance/offices/<int:office_id>", office_detail_view, name="api-attendance-office-detail"),
+    path("attendance/schedules", work_schedules_view, name="api-attendance-schedules"),
+    path("attendance/reports/timesheet", attendance_timesheet_view, name="api-attendance-timesheet"),
+    path("attendance/reports/export", attendance_export_view, name="api-attendance-export"),
 ]

@@ -13,6 +13,12 @@ from backend.infrastructure.persistence.repositories.django_repositories import 
     DjangoAttachmentRepository,
     DjangoActivityLogRepository,
     DjangoNotificationRepository,
+    DjangoOfficeRepository,
+    DjangoWorkScheduleRepository,
+    DjangoAttendanceRecordRepository,
+    DjangoAbsenceRepository,
+    DjangoLocationLogRepository,
+    DjangoConsentRepository,
 )
 
 
@@ -28,6 +34,12 @@ class DjangoUnitOfWork(IUnitOfWork):
         self.attachments = DjangoAttachmentRepository()
         self.activity_logs = DjangoActivityLogRepository()
         self.notifications = DjangoNotificationRepository()
+        self.offices = DjangoOfficeRepository()
+        self.work_schedules = DjangoWorkScheduleRepository()
+        self.attendance_records = DjangoAttendanceRecordRepository()
+        self.absences = DjangoAbsenceRepository()
+        self.location_logs = DjangoLocationLogRepository()
+        self.consents = DjangoConsentRepository()
         self._atomic = None
 
     def __enter__(self) -> "DjangoUnitOfWork":

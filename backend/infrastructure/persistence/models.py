@@ -288,3 +288,239 @@ class NotificationModel(models.Model):
 
     def __str__(self):
         return f"{self.user.email} - {self.title}"
+
+
+class OfficeModel(models.Model):
+    name = models.CharField(max_length=255, verbose_name="Название офиса / филиала")
+    address = models.CharField(max_length=500, blank=True, default="", verbose_name="Адрес офиса")
+    latitude = models.FloatField(default=42.8746, verbose_name="Широта (Latitude)")
+    longitude = models.FloatField(default=74.5698, verbose_name="Долгота (Longitude)")
+    radius_meters = models.PositiveIntegerField(default=100, verbose_name="Радиус зоны офиса (метры)")
+    ip_subnet = models.CharField(max_length=255, blank=True, default="", verbose_name="IP-подсеть или IP-адреса офиса")
+    is_ip_check_enabled = models.BooleanField(default=False, verbose_name="Включить проверку IP-адреса")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата добавления")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Дата обновления")
+
+    class Meta:
+        db_table = "offices"
+        ordering = ["name"]
+        verbose_name = "Офис / Филиал"
+        verbose_name_plural = "Офисы и филиалы"
+
+    def __str__(self):
+        return f"{self.name} (R={self.radius_meters}m)"
+
+
+class WorkScheduleModel(models.Model):
+    name = models.CharField(max_length=255, verbose_name="Название графика")
+    user = models.ForeignKey(
+        UserModel,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="personal_work_schedules",
+        verbose_name="Сотрудник (персональный график)"
+    )
+    department = models.ForeignKey(
+        DepartmentModel,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="department_work_schedules",
+        verbose_name="Отдел (график отдела)"
+    )
+    start_time = models.TimeField(default="09:00:00", verbose_name="Время начала работы")
+    end_time = models.TimeField(default="18:00:00", verbose_name="Время окончания работы")
+    break_duration_minutes = models.PositiveIntegerField(default=60, verbose_name="Длительность обеда (минут)")
+    timezone = models.CharField(max_length=100, default="Asia/Bishkek", verbose_name="Часовой пояс")
+    is_active = models.BooleanField(default=True, verbose_name="Активен")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
+
+    class Meta:
+        db_table = "work_schedules"
+        ordering = ["-created_at"]
+        verbose_name = "График работы"
+        verbose_name_plural = "Графики работы"
+
+    def __str__(self):
+        target = self.user.full_name if self.user else (self.department.name if self.department else "Общий")
+        return f"{self.name} [{target}]: {self.start_time}-{self.end_time}"
+
+
+class AttendanceRecordModel(models.Model):
+    user = models.ForeignKey(
+        UserModel,
+        on_delete=models.CASCADE,
+        related_name="attendance_records",
+        verbose_name="Сотрудник"
+    )
+    office = models.ForeignKey(
+        OfficeModel,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="attendance_records",
+        verbose_name="Офис"
+    )
+    record_type = models.CharField(
+        max_length=30,
+        choices=[
+            ("check_in", "Пришёл"),
+            ("check_out", "Ушёл"),
+        ],
+        verbose_name="Тип отметки"
+    )
+    timestamp = models.DateTimeField(default=timezone.now, verbose_name="Время отметки")
+    latitude = models.FloatField(null=True, blank=True, verbose_name="Широта")
+    longitude = models.FloatField(null=True, blank=True, verbose_name="Долгота")
+    accuracy_meters = models.FloatField(null=True, blank=True, verbose_name="Точность GPS (метры)")
+    is_within_radius = models.BooleanField(default=True, verbose_name="В радиусе офиса")
+    ip_address = models.CharField(max_length=100, null=True, blank=True, verbose_name="IP-адрес")
+    verification_result = models.CharField(
+        max_length=50,
+        choices=[
+            ("verified", "Подтверждено"),
+            ("rejected", "Отклонено"),
+            ("manual_override", "Исправлено вручную"),
+        ],
+        default="verified",
+        verbose_name="Результат проверки"
+    )
+    rejection_reason = models.TextField(blank=True, default="", verbose_name="Причина отклонения")
+    is_edited = models.BooleanField(default=False, verbose_name="Исправлено вручную руководителем")
+    edited_by = models.ForeignKey(
+        UserModel,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="edited_attendance_records",
+        verbose_name="Кто исправил"
+    )
+    edit_reason = models.TextField(blank=True, default="", verbose_name="Обязательная причина правки")
+    original_timestamp = models.DateTimeField(null=True, blank=True, verbose_name="Исходное время до правки")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата записи")
+
+    class Meta:
+        db_table = "attendance_records"
+        ordering = ["-timestamp"]
+        verbose_name = "Отметка посещаемости"
+        verbose_name_plural = "Отметки посещаемости"
+
+    def __str__(self):
+        return f"{self.user.full_name} - {self.record_type} ({self.timestamp.strftime('%Y-%m-%d %H:%M')})"
+
+
+class AbsenceModel(models.Model):
+    user = models.ForeignKey(
+        UserModel,
+        on_delete=models.CASCADE,
+        related_name="absences",
+        verbose_name="Сотрудник"
+    )
+    category = models.CharField(
+        max_length=30,
+        choices=[
+            ("break", "Внутридневная отлучка"),
+            ("day_status", "Статус дня"),
+        ],
+        default="break",
+        verbose_name="Категория"
+    )
+    absence_type = models.CharField(
+        max_length=50,
+        choices=[
+            ("lunch", "Обед"),
+            ("business", "По делам компании"),
+            ("personal", "Личное"),
+            ("other", "Другое"),
+            ("vacation", "Отпуск"),
+            ("sick_leave", "Больничный"),
+            ("business_trip", "Командировка"),
+            ("day_off", "Выходной"),
+        ],
+        verbose_name="Тип причины"
+    )
+    reason = models.TextField(blank=True, default="", verbose_name="Причина")
+    comment = models.TextField(blank=True, default="", verbose_name="Комментарий сотрудника")
+    start_time = models.DateTimeField(default=timezone.now, verbose_name="Время начала")
+    end_time = models.DateTimeField(null=True, blank=True, verbose_name="Время окончания")
+    is_approved = models.BooleanField(default=True, verbose_name="Подтверждено / Одобрено")
+    approved_by = models.ForeignKey(
+        UserModel,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="approved_absences",
+        verbose_name="Кто подтвердил"
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
+
+    class Meta:
+        db_table = "absences"
+        ordering = ["-start_time"]
+        verbose_name = "Отлучка / Статус дня"
+        verbose_name_plural = "Отлучки и статусы дней"
+
+    def __str__(self):
+        return f"{self.user.full_name}: {self.absence_type} ({self.start_time.strftime('%Y-%m-%d %H:%M')})"
+
+
+class LocationLogModel(models.Model):
+    user = models.ForeignKey(
+        UserModel,
+        on_delete=models.CASCADE,
+        related_name="location_logs",
+        verbose_name="Сотрудник"
+    )
+    timestamp = models.DateTimeField(default=timezone.now, verbose_name="Время геометки")
+    latitude = models.FloatField(verbose_name="Широта")
+    longitude = models.FloatField(verbose_name="Долгота")
+    accuracy_meters = models.FloatField(null=True, blank=True, verbose_name="Точность (метры)")
+    source = models.CharField(
+        max_length=50,
+        choices=[
+            ("gps", "GPS"),
+            ("network", "Network / Wi-Fi"),
+            ("web", "Веб-интерфейс"),
+            ("mobile", "Мобильное приложение"),
+        ],
+        default="gps",
+        verbose_name="Источник координат"
+    )
+    is_outside_office = models.BooleanField(default=False, verbose_name="Вне зоны офиса")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата сохранения")
+
+    class Meta:
+        db_table = "location_logs"
+        ordering = ["-timestamp"]
+        verbose_name = "Геометка сотрудника"
+        verbose_name_plural = "Журнал геолокаций"
+
+    def __str__(self):
+        return f"{self.user.full_name} ({self.latitude:.4f}, {self.longitude:.4f}) at {self.timestamp.strftime('%H:%M:%S')}"
+
+
+class ConsentModel(models.Model):
+    user = models.ForeignKey(
+        UserModel,
+        on_delete=models.CASCADE,
+        related_name="consents",
+        verbose_name="Сотрудник"
+    )
+    consent_version = models.CharField(max_length=50, default="1.0", verbose_name="Версия согласия")
+    is_granted = models.BooleanField(default=True, verbose_name="Согласие предоставлено")
+    granted_at = models.DateTimeField(default=timezone.now, verbose_name="Дата и время согласия")
+    revoked_at = models.DateTimeField(null=True, blank=True, verbose_name="Дата и время отзыва")
+    consent_text = models.TextField(blank=True, default="", verbose_name="Текст согласия")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата записи")
+
+    class Meta:
+        db_table = "consents"
+        ordering = ["-granted_at"]
+        verbose_name = "Согласие на отслеживание местоположения"
+        verbose_name_plural = "Согласия сотрудников"
+
+    def __str__(self):
+        status = "Дано" if self.is_granted else "Отозвано"
+        return f"{self.user.full_name} [v{self.consent_version}]: {status}"
+

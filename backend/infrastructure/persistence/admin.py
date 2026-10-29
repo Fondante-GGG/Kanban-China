@@ -2,7 +2,9 @@ from django.contrib import admin
 from backend.infrastructure.persistence.models import (
     DepartmentModel, UserModel, BoardModel, BoardMemberModel, ColumnModel,
     CardModel, CardAssigneeModel, ChecklistModel, CommentModel, AttachmentModel,
-    ActivityLogModel, NotificationModel
+    ActivityLogModel, NotificationModel,
+    OfficeModel, WorkScheduleModel, AttendanceRecordModel, AbsenceModel,
+    LocationLogModel, ConsentModel
 )
 
 
@@ -124,3 +126,46 @@ class NotificationAdmin(admin.ModelAdmin):
     list_display = ("id", "user", "title", "is_read", "created_at")
     list_filter = ("is_read", "created_at")
     search_fields = ("title", "message", "user__email")
+
+
+@admin.register(OfficeModel)
+class OfficeAdmin(admin.ModelAdmin):
+    list_display = ("id", "name", "address", "latitude", "longitude", "radius_meters", "is_ip_check_enabled", "created_at")
+    search_fields = ("name", "address", "ip_subnet")
+    list_filter = ("is_ip_check_enabled",)
+
+
+@admin.register(WorkScheduleModel)
+class WorkScheduleAdmin(admin.ModelAdmin):
+    list_display = ("id", "name", "user", "department", "start_time", "end_time", "break_duration_minutes", "is_active")
+    search_fields = ("name", "user__full_name", "department__name")
+    list_filter = ("is_active", "department")
+
+
+@admin.register(AttendanceRecordModel)
+class AttendanceRecordAdmin(admin.ModelAdmin):
+    list_display = ("id", "user", "record_type", "timestamp", "is_within_radius", "verification_result", "is_edited", "edited_by")
+    search_fields = ("user__full_name", "user__email", "edit_reason", "rejection_reason")
+    list_filter = ("record_type", "verification_result", "is_within_radius", "is_edited")
+
+
+@admin.register(AbsenceModel)
+class AbsenceAdmin(admin.ModelAdmin):
+    list_display = ("id", "user", "category", "absence_type", "start_time", "end_time", "is_approved")
+    search_fields = ("user__full_name", "reason", "comment")
+    list_filter = ("category", "absence_type", "is_approved")
+
+
+@admin.register(LocationLogModel)
+class LocationLogAdmin(admin.ModelAdmin):
+    list_display = ("id", "user", "timestamp", "latitude", "longitude", "accuracy_meters", "source", "is_outside_office")
+    search_fields = ("user__full_name",)
+    list_filter = ("source", "is_outside_office")
+
+
+@admin.register(ConsentModel)
+class ConsentAdmin(admin.ModelAdmin):
+    list_display = ("id", "user", "consent_version", "is_granted", "granted_at", "revoked_at")
+    search_fields = ("user__full_name", "user__email")
+    list_filter = ("is_granted", "consent_version")
+

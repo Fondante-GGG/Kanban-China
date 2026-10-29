@@ -1,10 +1,12 @@
 from typing import Optional
 from backend.domain.entities import (
-    User, Department, Board, BoardMember, Column, Card, ChecklistItem, Comment, Attachment, ActivityLog, Notification
+    User, Department, Board, BoardMember, Column, Card, ChecklistItem, Comment, Attachment, ActivityLog, Notification,
+    Office, WorkSchedule, AttendanceRecord, Absence, LocationLog, Consent
 )
 from backend.infrastructure.persistence.models import (
     UserModel, DepartmentModel, BoardModel, BoardMemberModel, ColumnModel, CardModel, ChecklistModel,
-    CommentModel, AttachmentModel, ActivityLogModel, NotificationModel
+    CommentModel, AttachmentModel, ActivityLogModel, NotificationModel,
+    OfficeModel, WorkScheduleModel, AttendanceRecordModel, AbsenceModel, LocationLogModel, ConsentModel
 )
 
 
@@ -152,3 +154,110 @@ class DataMapper:
             is_read=model.is_read,
             created_at=model.created_at,
         )
+
+    @staticmethod
+    def office_to_domain(model: OfficeModel) -> Office:
+        return Office(
+            id=model.id,
+            name=model.name,
+            address=model.address,
+            latitude=model.latitude,
+            longitude=model.longitude,
+            radius_meters=model.radius_meters,
+            ip_subnet=model.ip_subnet,
+            is_ip_check_enabled=model.is_ip_check_enabled,
+            created_at=model.created_at,
+            updated_at=model.updated_at,
+        )
+
+    @staticmethod
+    def work_schedule_to_domain(model: WorkScheduleModel) -> WorkSchedule:
+        return WorkSchedule(
+            id=model.id,
+            name=model.name,
+            user_id=model.user_id,
+            department_id=model.department_id,
+            start_time=model.start_time.strftime("%H:%M") if hasattr(model.start_time, "strftime") else str(model.start_time)[:5],
+            end_time=model.end_time.strftime("%H:%M") if hasattr(model.end_time, "strftime") else str(model.end_time)[:5],
+            break_duration_minutes=model.break_duration_minutes,
+            timezone=model.timezone,
+            is_active=model.is_active,
+            created_at=model.created_at,
+            user_full_name=model.user.full_name if model.user else None,
+            department_name=model.department.name if model.department else None,
+        )
+
+    @staticmethod
+    def attendance_record_to_domain(model: AttendanceRecordModel) -> AttendanceRecord:
+        return AttendanceRecord(
+            id=model.id,
+            user_id=model.user_id,
+            office_id=model.office_id,
+            record_type=model.record_type,
+            timestamp=model.timestamp,
+            latitude=model.latitude,
+            longitude=model.longitude,
+            accuracy_meters=model.accuracy_meters,
+            is_within_radius=model.is_within_radius,
+            ip_address=model.ip_address,
+            verification_result=model.verification_result,
+            rejection_reason=model.rejection_reason,
+            is_edited=model.is_edited,
+            edited_by_id=model.edited_by_id,
+            edit_reason=model.edit_reason,
+            original_timestamp=model.original_timestamp,
+            created_at=model.created_at,
+            user_full_name=model.user.full_name if model.user else None,
+            user_email=model.user.email if model.user else None,
+            office_name=model.office.name if model.office else None,
+            edited_by_name=model.edited_by.full_name if model.edited_by else None,
+        )
+
+    @staticmethod
+    def absence_to_domain(model: AbsenceModel) -> Absence:
+        return Absence(
+            id=model.id,
+            user_id=model.user_id,
+            category=model.category,
+            absence_type=model.absence_type,
+            start_time=model.start_time,
+            end_time=model.end_time,
+            reason=model.reason,
+            comment=model.comment,
+            is_approved=model.is_approved,
+            approved_by_id=model.approved_by_id,
+            created_at=model.created_at,
+            user_full_name=model.user.full_name if model.user else None,
+            user_department_name=model.user.department.name if (model.user and model.user.department) else None,
+            approved_by_name=model.approved_by.full_name if model.approved_by else None,
+        )
+
+    @staticmethod
+    def location_log_to_domain(model: LocationLogModel) -> LocationLog:
+        return LocationLog(
+            id=model.id,
+            user_id=model.user_id,
+            timestamp=model.timestamp,
+            latitude=model.latitude,
+            longitude=model.longitude,
+            accuracy_meters=model.accuracy_meters,
+            source=model.source,
+            is_outside_office=model.is_outside_office,
+            created_at=model.created_at,
+            user_full_name=model.user.full_name if model.user else None,
+        )
+
+    @staticmethod
+    def consent_to_domain(model: ConsentModel) -> Consent:
+        return Consent(
+            id=model.id,
+            user_id=model.user_id,
+            consent_version=model.consent_version,
+            is_granted=model.is_granted,
+            granted_at=model.granted_at,
+            revoked_at=model.revoked_at,
+            consent_text=model.consent_text,
+            created_at=model.created_at,
+            user_full_name=model.user.full_name if model.user else None,
+        )
+

@@ -1,7 +1,10 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional, List
-from backend.domain.value_objects import RoleType, CardPriority, SupportedLanguage, ActivityAction
+from backend.domain.value_objects import (
+    RoleType, CardPriority, SupportedLanguage, ActivityAction,
+    AttendanceRecordType, VerificationResult, AbsenceCategory, AbsenceType, LocationSource
+)
 
 
 @dataclass
@@ -160,3 +163,104 @@ class Notification:
     entity_id: Optional[int] = None
     is_read: bool = False
     created_at: Optional[datetime] = None
+
+
+@dataclass
+class Office:
+    id: Optional[int]
+    name: str
+    address: Optional[str] = ""
+    latitude: float = 42.8746
+    longitude: float = 74.5698
+    radius_meters: int = 100
+    ip_subnet: str = ""
+    is_ip_check_enabled: bool = False
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+@dataclass
+class WorkSchedule:
+    id: Optional[int]
+    name: str
+    user_id: Optional[int] = None
+    department_id: Optional[int] = None
+    start_time: str = "09:00"
+    end_time: str = "18:00"
+    break_duration_minutes: int = 60
+    timezone: str = "Asia/Bishkek"
+    is_active: bool = True
+    created_at: Optional[datetime] = None
+    user_full_name: Optional[str] = None
+    department_name: Optional[str] = None
+
+
+@dataclass
+class AttendanceRecord:
+    id: Optional[int]
+    user_id: int
+    record_type: AttendanceRecordType
+    timestamp: datetime
+    office_id: Optional[int] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    accuracy_meters: Optional[float] = None
+    is_within_radius: bool = True
+    ip_address: Optional[str] = None
+    verification_result: VerificationResult = VerificationResult.VERIFIED
+    rejection_reason: str = ""
+    is_edited: bool = False
+    edited_by_id: Optional[int] = None
+    edit_reason: str = ""
+    original_timestamp: Optional[datetime] = None
+    created_at: Optional[datetime] = None
+    user_full_name: Optional[str] = None
+    user_email: Optional[str] = None
+    office_name: Optional[str] = None
+    edited_by_name: Optional[str] = None
+
+
+@dataclass
+class Absence:
+    id: Optional[int]
+    user_id: int
+    category: AbsenceCategory
+    absence_type: AbsenceType
+    start_time: datetime
+    end_time: Optional[datetime] = None
+    reason: str = ""
+    comment: str = ""
+    is_approved: bool = True
+    approved_by_id: Optional[int] = None
+    created_at: Optional[datetime] = None
+    user_full_name: Optional[str] = None
+    user_department_name: Optional[str] = None
+    approved_by_name: Optional[str] = None
+
+
+@dataclass
+class LocationLog:
+    id: Optional[int]
+    user_id: int
+    timestamp: datetime
+    latitude: float
+    longitude: float
+    accuracy_meters: Optional[float] = None
+    source: LocationSource = LocationSource.GPS
+    is_outside_office: bool = False
+    created_at: Optional[datetime] = None
+    user_full_name: Optional[str] = None
+
+
+@dataclass
+class Consent:
+    id: Optional[int]
+    user_id: int
+    consent_version: str = "1.0"
+    is_granted: bool = True
+    granted_at: Optional[datetime] = None
+    revoked_at: Optional[datetime] = None
+    consent_text: str = ""
+    created_at: Optional[datetime] = None
+    user_full_name: Optional[str] = None
+

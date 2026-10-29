@@ -1,17 +1,24 @@
 from typing import Optional, List, Dict
+from datetime import datetime, timedelta
+from django.utils import timezone
 from django.db.models import Q
 from backend.application.interfaces.repositories import (
     IUserRepository, IDepartmentRepository, IBoardRepository, IColumnRepository,
     ICardRepository, IChecklistRepository, ICommentRepository, IAttachmentRepository,
-    IActivityLogRepository, INotificationRepository
+    IActivityLogRepository, INotificationRepository,
+    IOfficeRepository, IWorkScheduleRepository, IAttendanceRecordRepository,
+    IAbsenceRepository, ILocationLogRepository, IConsentRepository
 )
 from backend.domain.entities import (
-    User, Department, Board, BoardMember, Column, Card, ChecklistItem, Comment, Attachment, ActivityLog, Notification
+    User, Department, Board, BoardMember, Column, Card, ChecklistItem, Comment, Attachment, ActivityLog, Notification,
+    Office, WorkSchedule, AttendanceRecord, Absence, LocationLog, Consent
 )
 from backend.infrastructure.persistence.models import (
     UserModel, DepartmentModel, BoardModel, BoardMemberModel, ColumnModel,
     CardModel, CardAssigneeModel, ChecklistModel, CommentModel, AttachmentModel,
-    ActivityLogModel, NotificationModel
+    ActivityLogModel, NotificationModel,
+    OfficeModel, WorkScheduleModel, AttendanceRecordModel, AbsenceModel,
+    LocationLogModel, ConsentModel
 )
 from backend.infrastructure.persistence.mappers import DataMapper
 
@@ -427,3 +434,298 @@ class DjangoNotificationRepository(INotificationRepository):
 
     def mark_as_read(self, notification_id: int, user_id: int) -> None:
         NotificationModel.objects.filter(id=notification_id, user_id=user_id).update(is_read=True)
+
+
+class DjangoOfficeRepository(IOfficeRepository):
+    def get_by_id(self, office_id: int) -> Optional[Office]:
+        try:
+            m = OfficeModel.objects.get(id=office_id)
+            return DataMapper.office_to_domain(m)
+        except OfficeModel.DoesNotExist:
+            return None
+
+    def list_all(self) -> List[Office]:
+        return [DataMapper.office_to_domain(m) for m in OfficeModel.objects.all()]
+
+    def create(self, office: Office) -> Office:
+        m = OfficeModel.objects.create(
+            name=office.name,
+            address=office.address or "",
+            latitude=office.latitude,
+            longitude=office.longitude,
+            radius_meters=office.radius_meters,
+            ip_subnet=office.ip_subnet or "",
+            is_ip_check_enabled=office.is_ip_check_enabled,
+        )
+        return DataMapper.office_to_domain(m)
+
+    def update(self, office: Office) -> Office:
+        OfficeModel.objects.filter(id=office.id).update(
+            name=office.name,
+            address=office.address or "",
+            latitude=office.latitude,
+            longitude=office.longitude,
+            radius_meters=office.radius_meters,
+            ip_subnet=office.ip_subnet or "",
+            is_ip_check_enabled=office.is_ip_check_enabled,
+        )
+        return self.get_by_id(office.id)
+
+    def delete(self, office_id: int) -> bool:
+        cnt, _ = OfficeModel.objects.filter(id=office_id).delete()
+        return cnt > 0
+
+
+class DjangoWorkScheduleRepository(IWorkScheduleRepository):
+    def get_by_id(self, schedule_id: int) -> Optional[WorkSchedule]:
+        try:
+            m = WorkScheduleModel.objects.select_related("user", "department").get(id=schedule_id)
+            return DataMapper.work_schedule_to_domain(m)
+        except WorkScheduleModel.DoesNotExist:
+            return None
+
+    def get_for_user(self, user_id: int, department_id: Optional[int] = None) -> Optional[WorkSchedule]:
+        # 1. Personal schedule
+        ps = WorkScheduleModel.objects.select_related("user", "department").filter(user_id=user_id, is_active=True).first()
+        if ps:
+            return DataMapper.work_schedule_to_domain(ps)
+        # 2. Department schedule
+        if department_id:
+            ds = WorkScheduleModel.objects.select_related("user", "department").filter(department_id=department_id, is_active=True).first()
+            if ds:
+                return DataMapper.work_schedule_to_domain(ds)
+        # 3. Default company schedule (first active without user and department or general)
+        gs = WorkScheduleModel.objects.select_related("user", "department").filter(user__isnull=True, department__isnull=True, is_active=True).first()
+        if gs:
+            return DataMapper.work_schedule_to_domain(gs)
+        return None
+
+    def list_all(self) -> List[WorkSchedule]:
+        qs = WorkScheduleModel.objects.select_related("user", "department").all()
+        return [DataMapper.work_schedule_to_domain(m) for m in qs]
+
+    def create(self, schedule: WorkSchedule) -> WorkSchedule:
+        m = WorkScheduleModel.objects.create(
+            name=schedule.name,
+            user_id=schedule.user_id,
+            department_id=schedule.department_id,
+            start_time=schedule.start_time,
+            end_time=schedule.end_time,
+            break_duration_minutes=schedule.break_duration_minutes,
+            timezone=schedule.timezone,
+            is_active=schedule.is_active,
+        )
+        m = WorkScheduleModel.objects.select_related("user", "department").get(id=m.id)
+        return DataMapper.work_schedule_to_domain(m)
+
+    def update(self, schedule: WorkSchedule) -> WorkSchedule:
+        WorkScheduleModel.objects.filter(id=schedule.id).update(
+            name=schedule.name,
+            user_id=schedule.user_id,
+            department_id=schedule.department_id,
+            start_time=schedule.start_time,
+            end_time=schedule.end_time,
+            break_duration_minutes=schedule.break_duration_minutes,
+            timezone=schedule.timezone,
+            is_active=schedule.is_active,
+        )
+        return self.get_by_id(schedule.id)
+
+    def delete(self, schedule_id: int) -> bool:
+        cnt, _ = WorkScheduleModel.objects.filter(id=schedule_id).delete()
+        return cnt > 0
+
+
+class DjangoAttendanceRecordRepository(IAttendanceRecordRepository):
+    def get_by_id(self, record_id: int) -> Optional[AttendanceRecord]:
+        try:
+            m = AttendanceRecordModel.objects.select_related("user", "office", "edited_by").get(id=record_id)
+            return DataMapper.attendance_record_to_domain(m)
+        except AttendanceRecordModel.DoesNotExist:
+            return None
+
+    def get_latest_for_user(self, user_id: int) -> Optional[AttendanceRecord]:
+        m = AttendanceRecordModel.objects.select_related("user", "office", "edited_by").filter(user_id=user_id).order_by("-timestamp").first()
+        return DataMapper.attendance_record_to_domain(m) if m else None
+
+    def list_for_user_date(self, user_id: int, date_obj) -> List[AttendanceRecord]:
+        qs = AttendanceRecordModel.objects.select_related("user", "office", "edited_by").filter(
+            user_id=user_id,
+            timestamp__date=date_obj
+        ).order_by("timestamp")
+        return [DataMapper.attendance_record_to_domain(m) for m in qs]
+
+    def list_records(
+        self,
+        user_ids: Optional[List[int]] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+    ) -> List[AttendanceRecord]:
+        qs = AttendanceRecordModel.objects.select_related("user", "office", "edited_by").all()
+        if user_ids is not None:
+            qs = qs.filter(user_id__in=user_ids)
+        if start_date:
+            qs = qs.filter(timestamp__gte=start_date)
+        if end_date:
+            qs = qs.filter(timestamp__lte=end_date)
+        qs = qs.order_by("-timestamp")
+        return [DataMapper.attendance_record_to_domain(m) for m in qs]
+
+    def create(self, record: AttendanceRecord) -> AttendanceRecord:
+        m = AttendanceRecordModel.objects.create(
+            user_id=record.user_id,
+            office_id=record.office_id,
+            record_type=record.record_type,
+            timestamp=record.timestamp or timezone.now(),
+            latitude=record.latitude,
+            longitude=record.longitude,
+            accuracy_meters=record.accuracy_meters,
+            is_within_radius=record.is_within_radius,
+            ip_address=record.ip_address,
+            verification_result=record.verification_result,
+            rejection_reason=record.rejection_reason,
+            is_edited=record.is_edited,
+            edited_by_id=record.edited_by_id,
+            edit_reason=record.edit_reason,
+            original_timestamp=record.original_timestamp,
+        )
+        m = AttendanceRecordModel.objects.select_related("user", "office", "edited_by").get(id=m.id)
+        return DataMapper.attendance_record_to_domain(m)
+
+    def update(self, record: AttendanceRecord) -> AttendanceRecord:
+        AttendanceRecordModel.objects.filter(id=record.id).update(
+            timestamp=record.timestamp,
+            is_edited=record.is_edited,
+            edited_by_id=record.edited_by_id,
+            edit_reason=record.edit_reason,
+            original_timestamp=record.original_timestamp,
+            verification_result=record.verification_result,
+        )
+        return self.get_by_id(record.id)
+
+
+class DjangoAbsenceRepository(IAbsenceRepository):
+    def get_by_id(self, absence_id: int) -> Optional[Absence]:
+        try:
+            m = AbsenceModel.objects.select_related("user__department", "approved_by").get(id=absence_id)
+            return DataMapper.absence_to_domain(m)
+        except AbsenceModel.DoesNotExist:
+            return None
+
+    def get_active_break_for_user(self, user_id: int) -> Optional[Absence]:
+        m = AbsenceModel.objects.select_related("user__department", "approved_by").filter(
+            user_id=user_id,
+            category="break",
+            end_time__isnull=True
+        ).order_by("-start_time").first()
+        return DataMapper.absence_to_domain(m) if m else None
+
+    def get_active_day_status_for_user(self, user_id: int, date_obj) -> Optional[Absence]:
+        m = AbsenceModel.objects.select_related("user__department", "approved_by").filter(
+            user_id=user_id,
+            category="day_status",
+            start_time__date__lte=date_obj
+        ).filter(
+            Q(end_time__isnull=True) | Q(end_time__date__gte=date_obj)
+        ).order_by("-start_time").first()
+        return DataMapper.absence_to_domain(m) if m else None
+
+    def list_absences(
+        self,
+        user_ids: Optional[List[int]] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+        category: Optional[str] = None
+    ) -> List[Absence]:
+        qs = AbsenceModel.objects.select_related("user__department", "approved_by").all()
+        if user_ids is not None:
+            qs = qs.filter(user_id__in=user_ids)
+        if start_date:
+            qs = qs.filter(start_time__gte=start_date)
+        if end_date:
+            qs = qs.filter(start_time__lte=end_date)
+        if category:
+            qs = qs.filter(category=category)
+        qs = qs.order_by("-start_time")
+        return [DataMapper.absence_to_domain(m) for m in qs]
+
+    def create(self, absence: Absence) -> Absence:
+        m = AbsenceModel.objects.create(
+            user_id=absence.user_id,
+            category=absence.category,
+            absence_type=absence.absence_type,
+            start_time=absence.start_time or timezone.now(),
+            end_time=absence.end_time,
+            reason=absence.reason or "",
+            comment=absence.comment or "",
+            is_approved=absence.is_approved,
+            approved_by_id=absence.approved_by_id,
+        )
+        m = AbsenceModel.objects.select_related("user__department", "approved_by").get(id=m.id)
+        return DataMapper.absence_to_domain(m)
+
+    def update(self, absence: Absence) -> Absence:
+        AbsenceModel.objects.filter(id=absence.id).update(
+            end_time=absence.end_time,
+            reason=absence.reason or "",
+            comment=absence.comment or "",
+            is_approved=absence.is_approved,
+            approved_by_id=absence.approved_by_id,
+        )
+        return self.get_by_id(absence.id)
+
+
+class DjangoLocationLogRepository(ILocationLogRepository):
+    def create(self, log: LocationLog) -> LocationLog:
+        m = LocationLogModel.objects.create(
+            user_id=log.user_id,
+            timestamp=log.timestamp or timezone.now(),
+            latitude=log.latitude,
+            longitude=log.longitude,
+            accuracy_meters=log.accuracy_meters,
+            source=log.source,
+            is_outside_office=log.is_outside_office,
+        )
+        return DataMapper.location_log_to_domain(m)
+
+    def list_for_user(self, user_id: int, limit: int = 50) -> List[LocationLog]:
+        qs = LocationLogModel.objects.select_related("user").filter(user_id=user_id).order_by("-timestamp")[:limit]
+        return [DataMapper.location_log_to_domain(m) for m in qs]
+
+    def cleanup_older_than(self, days: int = 90) -> int:
+        cutoff = timezone.now() - timedelta(days=days)
+        deleted, _ = LocationLogModel.objects.filter(created_at__lt=cutoff).delete()
+        return deleted
+
+
+class DjangoConsentRepository(IConsentRepository):
+    def get_for_user(self, user_id: int) -> Optional[Consent]:
+        m = ConsentModel.objects.select_related("user").filter(user_id=user_id).order_by("-granted_at").first()
+        return DataMapper.consent_to_domain(m) if m else None
+
+    def create_or_update(self, user_id: int, is_granted: bool, consent_version: str = "1.0", consent_text: str = "") -> Consent:
+        m = ConsentModel.objects.filter(user_id=user_id).first()
+        now = timezone.now()
+        if m:
+            m.is_granted = is_granted
+            m.consent_version = consent_version
+            if is_granted:
+                m.granted_at = now
+                m.revoked_at = None
+            else:
+                m.revoked_at = now
+            if consent_text:
+                m.consent_text = consent_text
+            m.save()
+        else:
+            m = ConsentModel.objects.create(
+                user_id=user_id,
+                consent_version=consent_version,
+                is_granted=is_granted,
+                granted_at=now,
+                revoked_at=None if is_granted else now,
+                consent_text=consent_text,
+            )
+        m = ConsentModel.objects.select_related("user").get(id=m.id)
+        return DataMapper.consent_to_domain(m)
+

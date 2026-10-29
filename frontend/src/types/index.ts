@@ -195,3 +195,132 @@ export interface AnalyticsData {
   departments: DepartmentReport[];
   employees: EmployeeReport[];
 }
+
+// Attendance & Time Tracking Types (Section 4.9)
+export interface Office {
+  id: number;
+  name: string;
+  address?: string;
+  latitude: number;
+  longitude: number;
+  radius_meters: number;
+  ip_subnet?: string;
+  is_ip_check_enabled?: boolean;
+}
+
+export interface WorkSchedule {
+  id: number;
+  name: string;
+  user_id?: number | null;
+  user_full_name?: string | null;
+  department_id?: number | null;
+  department_name?: string | null;
+  start_time: string;
+  end_time: string;
+  break_duration_minutes: number;
+  timezone: string;
+  is_active: boolean;
+}
+
+export interface AttendanceRecord {
+  id: number;
+  user_id: number;
+  user_full_name: string;
+  user_email: string;
+  record_type: 'check_in' | 'check_out';
+  timestamp: string;
+  office_name: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  accuracy_meters?: number | null;
+  is_within_radius: boolean;
+  verification_result: 'verified' | 'rejected' | 'manual_override';
+  rejection_reason?: string;
+  is_edited: boolean;
+  edited_by_name?: string | null;
+  edit_reason?: string;
+  original_timestamp?: string | null;
+}
+
+export interface ActiveBreak {
+  id: number;
+  absence_type: 'lunch' | 'business' | 'personal' | 'other';
+  start_time: string;
+  reason?: string;
+  comment?: string;
+}
+
+export interface DayStatus {
+  id: number;
+  absence_type: 'vacation' | 'sick_leave' | 'business_trip' | 'day_off';
+  start_time: string;
+  end_time?: string | null;
+  reason?: string;
+}
+
+export interface AttendanceStatus {
+  is_checked_in: boolean;
+  last_check_in_time?: string | null;
+  last_check_out_time?: string | null;
+  active_break?: ActiveBreak | null;
+  day_status?: DayStatus | null;
+  is_consent_granted: boolean;
+  forgot_checkout_reminder?: boolean;
+  office?: Office | null;
+  schedule?: WorkSchedule | null;
+}
+
+export interface TimesheetDailyRecord {
+  day: number;
+  date: string;
+  is_weekend: boolean;
+  check_in?: string | null;
+  check_out?: string | null;
+  worked_hours: number;
+  late_minutes: number;
+  early_minutes: number;
+  day_status?: string | null;
+}
+
+export interface TimesheetEmployee {
+  user_id: number;
+  full_name: string;
+  email: string;
+  department_name: string;
+  role: string;
+  days_worked: number;
+  total_worked_hours: number;
+  late_count: number;
+  total_late_minutes: number;
+  early_count: number;
+  total_early_minutes: number;
+  lunch_hours: number;
+  business_hours: number;
+  personal_hours: number;
+  other_hours: number;
+  vacation_days: number;
+  sick_days: number;
+  trip_days: number;
+  day_off_days: number;
+  daily_records: TimesheetDailyRecord[];
+}
+
+export interface TimesheetDepartment {
+  department_name: string;
+  employees_count: number;
+  total_worked_hours: number;
+  total_late_count: number;
+  total_late_minutes: number;
+  total_early_count: number;
+}
+
+export interface TimesheetReport {
+  year: number;
+  month: number;
+  month_name: string;
+  num_days: number;
+  total_employees: number;
+  employees: TimesheetEmployee[];
+  departments: TimesheetDepartment[];
+}
+

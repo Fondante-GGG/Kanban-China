@@ -2,6 +2,7 @@ from backend.infrastructure.persistence.uow import DjangoUnitOfWork
 from backend.infrastructure.services.jwt_service import JwtTokenService
 from backend.infrastructure.services.translation_service import ResilientTranslationService
 from backend.infrastructure.services.report_service import ReportService
+from backend.infrastructure.services.attendance_report_service import AttendanceReportService
 
 from backend.application.use_cases.auth_use_cases import (
     LoginUseCase, GetProfileUseCase, ResetPasswordUseCase
@@ -33,6 +34,14 @@ from backend.application.use_cases.notification_use_cases import (
 from backend.application.use_cases.report_use_cases import (
     GetAnalyticsReportUseCase, ExportReportUseCase
 )
+from backend.application.use_cases.attendance_use_cases import (
+    GetAttendanceStatusUseCase, CheckInUseCase, CheckOutUseCase, LeaveAbsenceUseCase,
+    ResumeAbsenceUseCase, RecordLocationLogUseCase, ListAttendanceRecordsUseCase,
+    EditAttendanceRecordUseCase, ManageConsentUseCase, CreateDayStatusUseCase
+)
+from backend.application.use_cases.attendance_report_use_cases import (
+    GetMonthlyTimesheetUseCase, ExportMonthlyTimesheetUseCase
+)
 
 
 class Container:
@@ -42,6 +51,7 @@ class Container:
         self.jwt_service = JwtTokenService()
         self.translation_service = ResilientTranslationService()
         self.report_service = ReportService()
+        self.attendance_report_service = AttendanceReportService()
 
     def get_uow(self) -> DjangoUnitOfWork:
         return DjangoUnitOfWork()
@@ -151,6 +161,43 @@ class Container:
 
     def get_export_report_use_case(self) -> ExportReportUseCase:
         return ExportReportUseCase(self.get_uow(), self.report_service)
+
+    # Attendance Use Cases
+    def get_attendance_status_use_case(self) -> GetAttendanceStatusUseCase:
+        return GetAttendanceStatusUseCase(self.get_uow())
+
+    def get_check_in_use_case(self) -> CheckInUseCase:
+        return CheckInUseCase(self.get_uow())
+
+    def get_check_out_use_case(self) -> CheckOutUseCase:
+        return CheckOutUseCase(self.get_uow())
+
+    def get_leave_absence_use_case(self) -> LeaveAbsenceUseCase:
+        return LeaveAbsenceUseCase(self.get_uow())
+
+    def get_resume_absence_use_case(self) -> ResumeAbsenceUseCase:
+        return ResumeAbsenceUseCase(self.get_uow())
+
+    def get_location_log_use_case(self) -> RecordLocationLogUseCase:
+        return RecordLocationLogUseCase(self.get_uow())
+
+    def get_list_attendance_records_use_case(self) -> ListAttendanceRecordsUseCase:
+        return ListAttendanceRecordsUseCase(self.get_uow())
+
+    def get_edit_attendance_record_use_case(self) -> EditAttendanceRecordUseCase:
+        return EditAttendanceRecordUseCase(self.get_uow())
+
+    def get_manage_consent_use_case(self) -> ManageConsentUseCase:
+        return ManageConsentUseCase(self.get_uow())
+
+    def get_create_day_status_use_case(self) -> CreateDayStatusUseCase:
+        return CreateDayStatusUseCase(self.get_uow())
+
+    def get_monthly_timesheet_use_case(self) -> GetMonthlyTimesheetUseCase:
+        return GetMonthlyTimesheetUseCase(self.attendance_report_service)
+
+    def get_export_monthly_timesheet_use_case(self) -> ExportMonthlyTimesheetUseCase:
+        return ExportMonthlyTimesheetUseCase(self.attendance_report_service)
 
 
 # Global container instance
