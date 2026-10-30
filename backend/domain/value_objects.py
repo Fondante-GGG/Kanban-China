@@ -5,6 +5,7 @@ class RoleType(str, Enum):
     GENERAL_DIRECTOR = "general_director"
     MANAGER = "manager"
     EMPLOYEE = "employee"
+    ACCOUNTANT = "accountant"
 
     @classmethod
     def list(cls):

@@ -92,10 +92,10 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ currentUser, lan
   const [schedules, setSchedules] = useState<WorkSchedule[]>([]);
   const [showOfficeModal, setShowOfficeModal] = useState(false);
   const [officeForm, setOfficeForm] = useState<Partial<Office>>({
-    name: '',
-    address: '',
-    latitude: 42.8746,
-    longitude: 74.5698,
+    name: 'Главный офис',
+    address: 'ул. Мухаммеда Али Джиннаха, 15/1',
+    latitude: 40.512143,
+    longitude: 72.808202,
     radius_meters: 100,
     ip_subnet: '',
     is_ip_check_enabled: false,
@@ -683,10 +683,10 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ currentUser, lan
               <button
                 onClick={() => {
                   setOfficeForm({
-                    name: '',
-                    address: '',
-                    latitude: 42.8746,
-                    longitude: 74.5698,
+                    name: 'Главный офис',
+                    address: 'ул. Мухаммеда Али Джиннаха, 15/1',
+                    latitude: 40.512143,
+                    longitude: 72.808202,
                     radius_meters: 100,
                     ip_subnet: '',
                     is_ip_check_enabled: false,
@@ -996,7 +996,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ currentUser, lan
                 type="text"
                 value={officeForm.name}
                 onChange={(e) => setOfficeForm({ ...officeForm, name: e.target.value })}
-                placeholder="Например: Главный офис Бишкек или Филиал Ош"
+                placeholder="Например: Главный офис или Филиал"
                 className="w-full text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 p-2.5 text-black dark:text-white"
               />
             </div>
@@ -1009,7 +1009,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ currentUser, lan
                 type="text"
                 value={officeForm.address || ''}
                 onChange={(e) => setOfficeForm({ ...officeForm, address: e.target.value })}
-                placeholder="г. Бишкек, пр. Чуй 120"
+                placeholder="ул. Мухаммеда Али Джиннаха, 15/1"
                 className="w-full text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 p-2.5 text-black dark:text-white"
               />
             </div>

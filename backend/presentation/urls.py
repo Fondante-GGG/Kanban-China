@@ -19,6 +19,10 @@ from backend.presentation.api.attendance_views import (
     offices_view, office_detail_view, work_schedules_view,
     attendance_timesheet_view, attendance_export_view
 )
+from backend.presentation.api.expense_views import (
+    expenses_view, expense_detail_view, expense_status_view, expense_attachments_view,
+    expense_attachment_download_view, reimbursement_payment_view, expense_analytics_view, expense_export_view
+)
 
 urlpatterns = [
     # Auth
@@ -86,4 +90,14 @@ urlpatterns = [
     path("attendance/schedules", work_schedules_view, name="api-attendance-schedules"),
     path("attendance/reports/timesheet", attendance_timesheet_view, name="api-attendance-timesheet"),
     path("attendance/reports/export", attendance_export_view, name="api-attendance-export"),
+
+    # Finance: expenses, receipts and employee reimbursements
+    path("expenses", expenses_view, name="api-expenses"),
+    path("expenses/analytics", expense_analytics_view, name="api-expense-analytics"),
+    path("expenses/export", expense_export_view, name="api-expense-export"),
+    path("expenses/<int:expense_id>", expense_detail_view, name="api-expense-detail"),
+    path("expenses/<int:expense_id>/status", expense_status_view, name="api-expense-status"),
+    path("expenses/<int:expense_id>/attachments", expense_attachments_view, name="api-expense-attachments"),
+    path("expenses/<int:expense_id>/payment", reimbursement_payment_view, name="api-expense-payment"),
+    path("expense-attachments/<int:attachment_id>/download", expense_attachment_download_view, name="api-expense-attachment-download"),
 ]

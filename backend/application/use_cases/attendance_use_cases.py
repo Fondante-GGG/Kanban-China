@@ -118,10 +118,10 @@ class GetAttendanceStatusUseCase:
                 default_office = self.uow.offices.create(
                     Office(
                         id=None,
-                        name="Главный офис Бишкек",
-                        address="г. Бишкек, пр. Чуй 120",
-                        latitude=42.8746,
-                        longitude=74.5698,
+                        name="Главный офис",
+                        address="ул. Мухаммеда Али Джиннаха, 15/1",
+                        latitude=40.512143,
+                        longitude=72.808202,
                         radius_meters=100,
                         ip_subnet="",
                         is_ip_check_enabled=False
@@ -205,10 +205,10 @@ class CheckInUseCase:
                 office = self.uow.offices.create(
                     Office(
                         id=None,
-                        name="Главный офис Бишкек",
-                        address="г. Бишкек, пр. Чуй 120",
-                        latitude=42.8746,
-                        longitude=74.5698,
+                        name="Главный офис",
+                        address="ул. Мухаммеда Али Джиннаха, 15/1",
+                        latitude=40.512143,
+                        longitude=72.808202,
                         radius_meters=100,
                     )
                 )
@@ -270,6 +270,51 @@ class CheckInUseCase:
                 if active_break:
                     active_break.end_time = now
                     self.uow.absences.update(active_break)
+
+                # Notify all active General Directors about check-in
+                try:
+                    all_users = self.uow.users.list_all()
+                    director_users = [
+                        u for u in all_users
+                        if u.is_general_director and u.is_active and u.id != current_user.id
+                    ]
+                    if director_users:
+                        if current_user.is_manager:
+                            role_label = "Руководитель"
+                        elif current_user.is_general_director:
+                            role_label = "Генеральный директор"
+                        else:
+                            role_label = "Сотрудник"
+
+                        dept_str = ""
+                        if current_user.department_id:
+                            dept = self.uow.departments.get_by_id(current_user.department_id)
+                            if dept:
+                                dept_str = f" ({dept.name})"
+
+                        local_time = timezone.localtime(record.timestamp)
+                        time_str = local_time.strftime("%H:%M")
+
+                        notif_title = "Приход сотрудника в офис"
+                        notif_message = (
+                            f"{current_user.full_name} [{role_label}{dept_str}] пришёл(ла) в офис "
+                            f"«{office_name}» в {time_str}"
+                        )
+
+                        for director in director_users:
+                            notif = Notification(
+                                id=None,
+                                user_id=director.id,
+                                title=notif_title,
+                                message=notif_message,
+                                entity_type="attendance",
+                                entity_id=record.id,
+                                is_read=False,
+                            )
+                            self.uow.notifications.create(notif)
+                except Exception as e:
+                    # Non-blocking notification failure
+                    pass
 
         if is_rejected:
             raise ValidationException(rejection_reason)

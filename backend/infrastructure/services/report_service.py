@@ -36,6 +36,10 @@ class ReportService(IReportService):
             try:
                 start_dt = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
                 end_dt = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
+                if start_dt.tzinfo is None:
+                    start_dt = start_dt.replace(tzinfo=timezone.utc)
+                if end_dt.tzinfo is None:
+                    end_dt = end_dt.replace(tzinfo=timezone.utc)
             except Exception:
                 start_dt = now - timedelta(days=30)
                 end_dt = now
@@ -51,6 +55,9 @@ class ReportService(IReportService):
 
         # Base card queryset
         card_qs = CardModel.objects.select_related("column__board__department").prefetch_related("assignee_relations__user")
+        # Reports must respect the selected reporting range.  Filtering here also
+        # prevents unrelated historical cards from changing current-period KPIs.
+        card_qs = card_qs.filter(created_at__gte=start_dt, created_at__lte=end_dt)
         if department_id:
             card_qs = card_qs.filter(column__board__department_id=department_id)
 

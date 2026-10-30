@@ -38,15 +38,15 @@ def seed():
     # Seed default office if none exists
     if OfficeModel.objects.count() == 0:
         OfficeModel.objects.create(
-            name="Главный офис Бишкек",
-            address="г. Бишкек, пр. Чуй 120",
-            latitude=42.8746,
-            longitude=74.5698,
+            name="Главный офис",
+            address="ул. Мухаммеда Али Джиннаха, 15/1",
+            latitude=40.512143,
+            longitude=72.808202,
             radius_meters=100,
             ip_subnet="",
             is_ip_check_enabled=False
         )
-        print("Default office created: Главный офис Бишкек (42.8746, 74.5698, R=100m)")
+        print("Default office created: Главный офис (ул. Мухаммеда Али Джиннаха, 15/1, 40.512143, 72.808202, R=100m)")
 
     # Seed default work schedule if none exists
     if WorkScheduleModel.objects.count() == 0:

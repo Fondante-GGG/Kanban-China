@@ -187,9 +187,9 @@ class DayStatusDTO:
 @dataclass
 class OfficeDTO:
     name: str
-    address: str = ""
-    latitude: float = 42.8746
-    longitude: float = 74.5698
+    address: str = "ул. Мухаммеда Али Джиннаха, 15/1"
+    latitude: float = 40.512143
+    longitude: float = 72.808202
     radius_meters: int = 100
     ip_subnet: str = ""
     is_ip_check_enabled: bool = False

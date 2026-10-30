@@ -15,7 +15,10 @@ def boards_list_create_view(request):
         return JsonResponse({"boards": boards}, status=200)
 
     elif request.method == "POST":
-        data = json.loads(request.body.decode("utf-8"))
+        try:
+            data = json.loads(request.body.decode("utf-8") or "{}")
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON body"}, status=400)
         dto = BoardCreateDTO(
             title=data.get("title", ""),
             department_id=data.get("department_id"),
@@ -37,14 +40,20 @@ def board_detail_view(request, board_id: int):
         search = request.GET.get("search")
         priority = request.GET.get("priority")
         assignee_id = request.GET.get("assignee_id")
-        assignee_id = int(assignee_id) if assignee_id else None
+        try:
+            assignee_id = int(assignee_id) if assignee_id else None
+        except ValueError:
+            return JsonResponse({"error": "assignee_id must be an integer"}, status=400)
 
         use_case = container.get_board_details_use_case()
         details = use_case.execute(request.user_entity, board_id, search=search, priority=priority, assignee_id=assignee_id)
         return JsonResponse(details, status=200)
 
     elif request.method == "PUT":
-        data = json.loads(request.body.decode("utf-8"))
+        try:
+            data = json.loads(request.body.decode("utf-8") or "{}")
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON body"}, status=400)
         dto = BoardUpdateDTO(
             title=data.get("title"),
             department_id=data.get("department_id"),

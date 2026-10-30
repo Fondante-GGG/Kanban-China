@@ -46,6 +46,7 @@ class UserModel(AbstractBaseUser, PermissionsMixin):
             ("general_director", "Генеральный директор"),
             ("manager", "Руководитель"),
             ("employee", "Сотрудник"),
+            ("accountant", "Бухгалтер"),
         ],
         default="employee",
         verbose_name="Роль в системе"
@@ -292,9 +293,9 @@ class NotificationModel(models.Model):
 
 class OfficeModel(models.Model):
     name = models.CharField(max_length=255, verbose_name="Название офиса / филиала")
-    address = models.CharField(max_length=500, blank=True, default="", verbose_name="Адрес офиса")
-    latitude = models.FloatField(default=42.8746, verbose_name="Широта (Latitude)")
-    longitude = models.FloatField(default=74.5698, verbose_name="Долгота (Longitude)")
+    address = models.CharField(max_length=500, blank=True, default="ул. Мухаммеда Али Джиннаха, 15/1", verbose_name="Адрес офиса")
+    latitude = models.FloatField(default=40.512143, verbose_name="Широта (Latitude)")
+    longitude = models.FloatField(default=72.808202, verbose_name="Долгота (Longitude)")
     radius_meters = models.PositiveIntegerField(default=100, verbose_name="Радиус зоны офиса (метры)")
     ip_subnet = models.CharField(max_length=255, blank=True, default="", verbose_name="IP-подсеть или IP-адреса офиса")
     is_ip_check_enabled = models.BooleanField(default=False, verbose_name="Включить проверку IP-адреса")
@@ -523,4 +524,78 @@ class ConsentModel(models.Model):
     def __str__(self):
         status = "Дано" if self.is_granted else "Отозвано"
         return f"{self.user.full_name} [v{self.consent_version}]: {status}"
+
+
+class ExpenseModel(models.Model):
+    STATUS_CHOICES = [(v, l) for v, l in [
+        ("draft", "Черновик"), ("under_review", "На проверке"),
+        ("needs_info", "Нужны уточнения"), ("approved", "Согласовано"),
+        ("rejected", "Отклонено"), ("paid", "Выплачено"),
+    ]]
+    PAYMENT_SOURCE_CHOICES = [("company", "Средства компании"), ("personal", "Личные средства сотрудника")]
+    PAYMENT_METHOD_CHOICES = [("corporate_card", "Корпоративная карта"), ("company_cash", "Наличные компании"), ("bank_transfer", "Банковский перевод"), ("personal_card", "Личная карта"), ("personal_cash", "Личные наличные")]
+    purchase_date = models.DateField(verbose_name="Дата покупки")
+    department = models.ForeignKey(DepartmentModel, on_delete=models.SET_NULL, null=True, blank=True, related_name="expenses")
+    category = models.CharField(max_length=120, verbose_name="Категория")
+    supplier = models.CharField(max_length=255, blank=True, default="", verbose_name="Поставщик")
+    description = models.TextField(blank=True, default="", verbose_name="Описание")
+    amount = models.DecimalField(max_digits=14, decimal_places=2, verbose_name="Сумма")
+    currency = models.CharField(max_length=3, default="KGS", verbose_name="Валюта")
+    payment_source = models.CharField(max_length=20, choices=PAYMENT_SOURCE_CHOICES, verbose_name="Источник средств")
+    payment_method = models.CharField(max_length=30, choices=PAYMENT_METHOD_CHOICES, verbose_name="Способ оплаты")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="draft")
+    created_by = models.ForeignKey(UserModel, on_delete=models.PROTECT, related_name="created_expenses")
+    accountant_comment = models.TextField(blank=True, default="")
+    reviewed_by = models.ForeignKey(UserModel, on_delete=models.SET_NULL, null=True, blank=True, related_name="reviewed_expenses")
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "expenses"
+        ordering = ["-purchase_date", "-created_at"]
+
+
+class ExpenseAttachmentModel(models.Model):
+    DOCUMENT_TYPES = [("kkm_receipt", "ККМ-чек"), ("bank_receipt", "Банковский чек"), ("invoice", "Счёт"), ("waybill", "Накладная"), ("other", "Другой")]
+    expense = models.ForeignKey(ExpenseModel, on_delete=models.CASCADE, related_name="attachments")
+    document_type = models.CharField(max_length=20, choices=DOCUMENT_TYPES, default="other")
+    file = models.FileField(upload_to="expense_documents/%Y/%m/")
+    original_name = models.CharField(max_length=255)
+    file_size = models.BigIntegerField()
+    uploaded_by = models.ForeignKey(UserModel, on_delete=models.PROTECT, related_name="uploaded_expense_documents")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "expense_attachments"
+        ordering = ["-created_at"]
+
+
+class ReimbursementPaymentModel(models.Model):
+    expense = models.ForeignKey(ExpenseModel, on_delete=models.CASCADE, related_name="payments")
+    amount = models.DecimalField(max_digits=14, decimal_places=2)
+    paid_at = models.DateTimeField(default=timezone.now)
+    payment_method = models.CharField(max_length=50, default="bank_transfer")
+    transaction_number = models.CharField(max_length=255, blank=True, default="")
+    proof = models.FileField(upload_to="reimbursement_proofs/%Y/%m/", null=True, blank=True)
+    created_by = models.ForeignKey(UserModel, on_delete=models.PROTECT, related_name="recorded_reimbursement_payments")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "reimbursement_payments"
+        ordering = ["-paid_at"]
+
+
+class ExpenseActivityLogModel(models.Model):
+    expense = models.ForeignKey(ExpenseModel, on_delete=models.CASCADE, related_name="activity_logs")
+    user = models.ForeignKey(UserModel, on_delete=models.PROTECT)
+    action = models.CharField(max_length=80)
+    old_status = models.CharField(max_length=20, blank=True, default="")
+    new_status = models.CharField(max_length=20, blank=True, default="")
+    comment = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "expense_activity_logs"
+        ordering = ["-created_at"]
 

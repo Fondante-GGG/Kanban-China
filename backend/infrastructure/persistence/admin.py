@@ -5,6 +5,7 @@ from backend.infrastructure.persistence.models import (
     ActivityLogModel, NotificationModel,
     OfficeModel, WorkScheduleModel, AttendanceRecordModel, AbsenceModel,
     LocationLogModel, ConsentModel
+    , ExpenseModel, ExpenseAttachmentModel, ReimbursementPaymentModel, ExpenseActivityLogModel
 )
 
 
@@ -168,4 +169,28 @@ class ConsentAdmin(admin.ModelAdmin):
     list_display = ("id", "user", "consent_version", "is_granted", "granted_at", "revoked_at")
     search_fields = ("user__full_name", "user__email")
     list_filter = ("is_granted", "consent_version")
+
+
+class ExpenseAttachmentInline(admin.TabularInline):
+    model = ExpenseAttachmentModel
+    extra = 0
+    readonly_fields = ("created_at", "file_size", "uploaded_by")
+
+
+@admin.register(ExpenseModel)
+class ExpenseAdmin(admin.ModelAdmin):
+    list_display = ("id", "purchase_date", "category", "amount", "currency", "payment_source", "status", "created_by", "department")
+    list_filter = ("status", "payment_source", "currency", "department")
+    search_fields = ("category", "supplier", "description", "created_by__full_name")
+    inlines = [ExpenseAttachmentInline]
+
+
+@admin.register(ReimbursementPaymentModel)
+class ReimbursementPaymentAdmin(admin.ModelAdmin):
+    list_display = ("id", "expense", "amount", "paid_at", "payment_method", "transaction_number", "created_by")
+
+
+@admin.register(ExpenseActivityLogModel)
+class ExpenseActivityLogAdmin(admin.ModelAdmin):
+    list_display = ("id", "expense", "user", "action", "old_status", "new_status", "created_at")
 

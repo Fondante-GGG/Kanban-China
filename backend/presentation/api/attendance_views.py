@@ -284,9 +284,9 @@ def offices_view(request):
                 Office(
                     id=None,
                     name=body.get("name", "Новый офис"),
-                    address=body.get("address", ""),
-                    latitude=float(body.get("latitude", 42.8746)),
-                    longitude=float(body.get("longitude", 74.5698)),
+                    address=body.get("address", "ул. Мухаммеда Али Джиннаха, 15/1"),
+                    latitude=float(body.get("latitude", 40.512143)),
+                    longitude=float(body.get("longitude", 72.808202)),
                     radius_meters=int(body.get("radius_meters", 100)),
                     ip_subnet=body.get("ip_subnet", ""),
                     is_ip_check_enabled=bool(body.get("is_ip_check_enabled", False)),

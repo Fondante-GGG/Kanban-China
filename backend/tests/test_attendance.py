@@ -5,7 +5,8 @@ from django.utils import timezone
 
 from backend.infrastructure.persistence.models import (
     UserModel, DepartmentModel, BoardModel, BoardMemberModel,
-    OfficeModel, WorkScheduleModel, AttendanceRecordModel, AbsenceModel, ConsentModel
+    OfficeModel, WorkScheduleModel, AttendanceRecordModel, AbsenceModel, ConsentModel,
+    NotificationModel
 )
 from backend.infrastructure.di.container import container
 
@@ -48,12 +49,12 @@ class AttendanceTestCase(TestCase):
         BoardMemberModel.objects.create(board=self.board, user=self.manager, role="manager")
         BoardMemberModel.objects.create(board=self.board, user=self.employee, role="employee")
 
-        # Office in Bishkek
+        # Office
         self.office = OfficeModel.objects.create(
-            name="Главный офис Бишкек",
-            address="г. Бишкек, пр. Чуй 120",
-            latitude=42.8746,
-            longitude=74.5698,
+            name="Главный офис",
+            address="ул. Мухаммеда Али Джиннаха, 15/1",
+            latitude=40.512143,
+            longitude=72.808202,
             radius_meters=100,
             ip_subnet="",
             is_ip_check_enabled=False
@@ -78,8 +79,8 @@ class AttendanceTestCase(TestCase):
         res = self.client.post(
             "/api/attendance/check-in",
             data=json.dumps({
-                "latitude": 42.87461,
-                "longitude": 74.56981,
+                "latitude": 40.51215,
+                "longitude": 72.80821,
                 "accuracy_meters": 10.0,
                 "office_id": self.office.id
             }),
@@ -97,13 +98,38 @@ class AttendanceTestCase(TestCase):
         self.assertTrue(record.is_within_radius)
         self.assertEqual(record.verification_result, "verified")
 
-    def test_check_in_outside_radius_is_rejected(self):
-        # Far coordinate outside Bishkek
+        # Verify notification was sent to General Director
+        notif = NotificationModel.objects.filter(user=self.director, entity_type="attendance").first()
+        self.assertIsNotNone(notif)
+        self.assertIn("Пак Александр", notif.message)
+        self.assertIn("пришёл(ла) в офис", notif.message)
+
+    def test_manager_check_in_notifies_director(self):
         res = self.client.post(
             "/api/attendance/check-in",
             data=json.dumps({
-                "latitude": 42.9500,
-                "longitude": 74.8000,
+                "latitude": 40.51215,
+                "longitude": 72.80821,
+                "accuracy_meters": 5.0,
+                "office_id": self.office.id
+            }),
+            content_type="application/json",
+            HTTP_AUTHORIZATION=f"Bearer {self.mgr_token}"
+        )
+        self.assertEqual(res.status_code, 200)
+
+        notif = NotificationModel.objects.filter(user=self.director, entity_type="attendance").first()
+        self.assertIsNotNone(notif)
+        self.assertIn("Иванов Иван", notif.message)
+        self.assertIn("Руководитель", notif.message)
+
+    def test_check_in_outside_radius_is_rejected(self):
+        # Far coordinate outside office
+        res = self.client.post(
+            "/api/attendance/check-in",
+            data=json.dumps({
+                "latitude": 41.5000,
+                "longitude": 73.5000,
                 "accuracy_meters": 15.0,
                 "office_id": self.office.id
             }),
@@ -119,6 +145,10 @@ class AttendanceTestCase(TestCase):
         self.assertIsNotNone(record)
         self.assertFalse(record.is_within_radius)
         self.assertEqual(record.verification_result, "rejected")
+
+        # Verify NO notification was sent to director on rejection
+        notif = NotificationModel.objects.filter(user=self.director, entity_type="attendance").first()
+        self.assertIsNone(notif)
 
     def test_leave_and_resume_absence(self):
         # 1. Employee goes on lunch

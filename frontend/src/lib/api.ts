@@ -491,6 +491,36 @@ class ApiClient {
     window.URL.revokeObjectURL(url);
     document.body.removeChild(a);
   }
+
+  // Finance: company purchases and staff reimbursements
+  async getExpenses(params?: Record<string, string | number>) {
+    const query = new URLSearchParams();
+    Object.entries(params || {}).forEach(([key, value]) => { if (value !== '' && value !== undefined) query.set(key, String(value)); });
+    return this.request<{ expenses: any[] }>(`/expenses${query.toString() ? `?${query}` : ''}`);
+  }
+
+  async createExpense(data: any) { return this.request<any>('/expenses', { method: 'POST', body: JSON.stringify(data) }); }
+  async getExpense(id: number) { return this.request<any>(`/expenses/${id}`); }
+  async changeExpenseStatus(id: number, status: string, comment = '') { return this.request<any>(`/expenses/${id}/status`, { method: 'POST', body: JSON.stringify({ status, comment }) }); }
+  async uploadExpenseAttachment(id: number, file: File, documentType: string) {
+    const data = new FormData(); data.append('file', file); data.append('document_type', documentType);
+    return this.request<any>(`/expenses/${id}/attachments`, { method: 'POST', body: data });
+  }
+  async recordReimbursementPayment(id: number, data: { amount: string; payment_method?: string; transaction_number?: string }) { return this.request<any>(`/expenses/${id}/payment`, { method: 'POST', body: JSON.stringify(data) }); }
+  async getExpenseAnalytics(params?: Record<string, string | number>) {
+    const query = new URLSearchParams(); Object.entries(params || {}).forEach(([k, v]) => { if (v !== '' && v !== undefined) query.set(k, String(v)); });
+    return this.request<any>(`/expenses/analytics${query.toString() ? `?${query}` : ''}`);
+  }
+  async downloadExpenseAttachment(id: number, fileName: string) {
+    const res = await fetch(`${API_BASE_URL}/expense-attachments/${id}/download`, { headers: { Authorization: `Bearer ${this.getToken() || ''}` } });
+    if (!res.ok) throw new Error('Не удалось скачать документ');
+    const url = URL.createObjectURL(await res.blob()); const link = document.createElement('a'); link.href = url; link.download = fileName; link.click(); URL.revokeObjectURL(url);
+  }
+  async downloadExpenseExport(format: 'xlsx' | 'docx' | 'pdf') {
+    const res = await fetch(`${API_BASE_URL}/expenses/export?format=${format}`, { headers: { Authorization: `Bearer ${this.getToken() || ''}` } });
+    if (!res.ok) throw new Error('Не удалось выгрузить отчёт');
+    const url = URL.createObjectURL(await res.blob()); const link = document.createElement('a'); link.href = url; link.download = `expenses.${format}`; link.click(); URL.revokeObjectURL(url);
+  }
 }
 
 export const api = new ApiClient();

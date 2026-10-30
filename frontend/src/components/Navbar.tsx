@@ -25,12 +25,13 @@ import {
   Building2,
   Layers,
   Clock
+  , ReceiptText
 } from 'lucide-react';
 
 interface NavbarProps {
   currentUser: User | null;
-  activeTab: 'board' | 'reports' | 'admin' | 'attendance';
-  setActiveTab: (tab: 'board' | 'reports' | 'admin' | 'attendance') => void;
+  activeTab: 'board' | 'reports' | 'admin' | 'attendance' | 'finance';
+  setActiveTab: (tab: 'board' | 'reports' | 'admin' | 'attendance' | 'finance') => void;
   boards: BoardSummary[];
   selectedBoardId: number | null;
   onSelectBoard: (boardId: number) => void;
@@ -152,6 +153,13 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               <Layers className="w-4 h-4" />
               {t.board}
+            </button>
+
+            <button
+              onClick={() => setActiveTab('finance')}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${activeTab === 'finance' ? 'bg-white dark:bg-slate-900 text-black dark:text-white shadow-sm' : 'text-black dark:text-white hover:opacity-80'}`}
+            >
+              <ReceiptText className="w-4 h-4" />{lang === 'zh-Hans' ? '费用' : lang === 'zh-Hant' ? '費用' : lang === 'ky' ? 'Чыгымдар' : 'Расходы'}
             </button>
 
             <button

@@ -1,4 +1,4 @@
-export type RoleType = 'general_director' | 'manager' | 'employee';
+export type RoleType = 'general_director' | 'manager' | 'employee' | 'accountant';
 
 export type PriorityType = 'low' | 'medium' | 'high' | 'urgent';
 

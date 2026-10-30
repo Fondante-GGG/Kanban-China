@@ -34,6 +34,10 @@ class User:
     def is_employee(self) -> bool:
         return self.role == RoleType.EMPLOYEE.value or self.role == RoleType.EMPLOYEE
 
+    @property
+    def is_accountant(self) -> bool:
+        return self.role == RoleType.ACCOUNTANT.value or self.role == RoleType.ACCOUNTANT
+
 
 @dataclass
 class Department:
@@ -169,9 +173,9 @@ class Notification:
 class Office:
     id: Optional[int]
     name: str
-    address: Optional[str] = ""
-    latitude: float = 42.8746
-    longitude: float = 74.5698
+    address: Optional[str] = "ул. Мухаммеда Али Джиннаха, 15/1"
+    latitude: float = 40.512143
+    longitude: float = 72.808202
     radius_meters: int = 100
     ip_subnet: str = ""
     is_ip_check_enabled: bool = False

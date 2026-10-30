@@ -518,6 +518,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ lang, currentUser, onRefre
                   {filteredUsers.map((u) => {
                     const isDir = u.role === 'general_director';
                     const isMgr = u.role === 'manager';
+                    const isAccountant = u.role === 'accountant';
                     return (
                       <tr key={u.id} className="hover:bg-slate-50 dark:hover:bg-slate-850/50 transition">
                         <td className="py-3 px-4">
@@ -543,7 +544,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ lang, currentUser, onRefre
                                 : 'bg-emerald-100 text-black dark:bg-emerald-950/60 dark:text-white border-emerald-300 dark:border-emerald-800'
                             }`}
                           >
-                            {isDir ? t.roleDirector : isMgr ? t.roleManager : t.roleEmployee}
+                            {isDir ? t.roleDirector : isMgr ? t.roleManager : isAccountant ? localizeRole('accountant', lang) : t.roleEmployee}
                           </span>
                         </td>
 
@@ -874,6 +875,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ lang, currentUser, onRefre
                     <option value="general_director">{t.roleDirector}</option>
                     <option value="manager">{t.roleManager}</option>
                     <option value="employee">{t.roleEmployee}</option>
+                    <option value="accountant">{localizeRole('accountant', lang)}</option>
                   </select>
                 </div>
 

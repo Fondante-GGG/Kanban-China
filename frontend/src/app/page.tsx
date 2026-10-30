@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { User, BoardSummary, LanguageCode, NotificationItem } from '@/types';
 import { api } from '@/lib/api';
 import { Navbar } from '@/components/Navbar';
@@ -9,20 +9,55 @@ import { ReportsView } from '@/components/ReportsView';
 import { AdminView } from '@/components/AdminView';
 import { AttendanceView } from '@/components/AttendanceView';
 import { AttendanceWidget } from '@/components/AttendanceWidget';
+import { FinanceView } from '@/components/FinanceView';
 import { LoginModal } from '@/components/LoginModal';
-import { translations } from '@/lib/i18n';
-import { Kanban, Layers } from 'lucide-react';
+import { translations, localizeDynamicText } from '@/lib/i18n';
+import { Kanban, Layers, UserCheck } from 'lucide-react';
 
 export default function Home() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [activeTab, setActiveTab] = useState<'board' | 'reports' | 'admin' | 'attendance'>('board');
+  const [activeTab, setActiveTab] = useState<'board' | 'reports' | 'admin' | 'attendance' | 'finance'>('board');
   const [boards, setBoards] = useState<BoardSummary[]>([]);
   const [selectedBoardId, setSelectedBoardId] = useState<number | null>(null);
   const [lang, setLang] = useState<LanguageCode>('ru');
   const [darkMode, setDarkMode] = useState<boolean>(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [toastNotification, setToastNotification] = useState<NotificationItem | null>(null);
+  const knownNotifIdsRef = useRef<Set<number>>(new Set());
   const [showLoginModal, setShowLoginModal] = useState<boolean>(false);
   const [initialLoading, setInitialLoading] = useState<boolean>(true);
+
+  // Periodic notifications polling (every 6 seconds) for real-time alerts
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await api.getNotifications();
+        const incoming: NotificationItem[] = res.notifications || [];
+
+        // Detect new unread notification for toast alert
+        if (knownNotifIdsRef.current.size > 0) {
+          const newest = incoming.find((n) => !n.is_read && !knownNotifIdsRef.current.has(n.id));
+          if (newest) {
+            setToastNotification(newest);
+            // Auto dismiss toast after 7 seconds
+            setTimeout(() => {
+              setToastNotification((prev) => (prev?.id === newest.id ? null : prev));
+            }, 7000);
+          }
+        }
+
+        // Update known IDs
+        incoming.forEach((n) => knownNotifIdsRef.current.add(n.id));
+        setNotifications(incoming);
+      } catch (err) {
+        // Silent poll error
+      }
+    }, 6000);
+
+    return () => clearInterval(interval);
+  }, [currentUser]);
 
   // Initialize theme & language preferences
   useEffect(() => {
@@ -72,6 +107,7 @@ export default function Home() {
       const availableBoards = boardsRes.boards;
       setBoards(availableBoards);
       setNotifications(notifsRes.notifications);
+      (notifsRes.notifications || []).forEach((n: NotificationItem) => knownNotifIdsRef.current.add(n.id));
 
       // Select active board
       if (forceSelectBoardId && availableBoards.some((b: any) => b.id === forceSelectBoardId)) {
@@ -219,6 +255,8 @@ export default function Home() {
           <AttendanceView lang={lang} currentUser={currentUser} />
         )}
 
+        {currentUser && activeTab === 'finance' && <FinanceView currentUser={currentUser} lang={lang} />}
+
         {currentUser && activeTab === 'admin' && (
           <AdminView
             lang={lang}
@@ -234,6 +272,38 @@ export default function Home() {
           onSuccess={handleLoginSuccess}
           lang={lang}
         />
+      )}
+
+      {/* Real-time Notification Toast Alert */}
+      {toastNotification && (
+        <div className="fixed bottom-5 right-5 z-50 max-w-sm w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 shadow-2xl rounded-2xl p-4 animate-in slide-in-from-bottom-5 fade-in duration-300">
+          <div className="flex items-start gap-3">
+            <div className="h-9 w-9 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center flex-shrink-0">
+              <UserCheck className="w-5 h-5" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-1">
+                <span className="font-extrabold text-xs text-black dark:text-white truncate">
+                  {localizeDynamicText(toastNotification.title, lang)}
+                </span>
+                <button
+                  onClick={() => setToastNotification(null)}
+                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs font-bold p-0.5"
+                >
+                  ✕
+                </button>
+              </div>
+              <p className="mt-1 text-xs text-slate-800 dark:text-slate-200 leading-relaxed font-medium">
+                {localizeDynamicText(toastNotification.message, lang)}
+              </p>
+              {toastNotification.created_at && (
+                <div className="mt-1 text-[10px] text-slate-500 font-semibold">
+                  {new Date(toastNotification.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
