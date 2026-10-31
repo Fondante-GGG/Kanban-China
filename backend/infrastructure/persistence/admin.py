@@ -171,14 +171,25 @@ class ConsentAdmin(admin.ModelAdmin):
     list_filter = ("is_granted", "consent_version")
 
 
+class FinancialReadOnlyAdmin(admin.ModelAdmin):
+    """Financial documents are changed through guarded, audited APIs only."""
+    def has_add_permission(self, request): return False
+    def has_change_permission(self, request, obj=None): return False
+    def has_delete_permission(self, request, obj=None): return False
+
+
 class ExpenseAttachmentInline(admin.TabularInline):
     model = ExpenseAttachmentModel
     extra = 0
-    readonly_fields = ("created_at", "file_size", "uploaded_by")
+    readonly_fields = ("document_type", "file", "original_name", "created_at", "file_size", "uploaded_by")
+    can_delete = False
+    def has_add_permission(self, request, obj=None): return False
+    def has_change_permission(self, request, obj=None): return False
+    def has_delete_permission(self, request, obj=None): return False
 
 
 @admin.register(ExpenseModel)
-class ExpenseAdmin(admin.ModelAdmin):
+class ExpenseAdmin(FinancialReadOnlyAdmin):
     list_display = ("id", "purchase_date", "category", "amount", "currency", "payment_source", "status", "created_by", "department")
     list_filter = ("status", "payment_source", "currency", "department")
     search_fields = ("category", "supplier", "description", "created_by__full_name")
@@ -186,11 +197,11 @@ class ExpenseAdmin(admin.ModelAdmin):
 
 
 @admin.register(ReimbursementPaymentModel)
-class ReimbursementPaymentAdmin(admin.ModelAdmin):
+class ReimbursementPaymentAdmin(FinancialReadOnlyAdmin):
     list_display = ("id", "expense", "amount", "paid_at", "payment_method", "transaction_number", "created_by")
 
 
 @admin.register(ExpenseActivityLogModel)
-class ExpenseActivityLogAdmin(admin.ModelAdmin):
+class ExpenseActivityLogAdmin(FinancialReadOnlyAdmin):
     list_display = ("id", "expense", "user", "action", "old_status", "new_status", "created_at")
 

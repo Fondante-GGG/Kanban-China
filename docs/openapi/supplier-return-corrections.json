@@ -1,0 +1,563 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Supplier return debt corrections",
+    "version": "1.0.0",
+    "description": "Append-only manual same-currency debt corrections. Review remains pending. No FX/refund/full general ledger."
+  },
+  "paths": {
+    "/api/finance/supplier-returns/{review_id}/corrections": {
+      "parameters": [
+        {
+          "name": "review_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9223372036854775807
+          }
+        }
+      ],
+      "get": {
+        "operationId": "listSupplierReturnCorrections",
+        "summary": "Finance readers: history and eligible same supplier/PO debts",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000000,
+              "default": 0
+            }
+          },
+          {
+            "name": "payable_limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "payable_offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000000,
+              "default": 0
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            },
+            "description": "Candidate payable ID or source statement number search."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "History and independent candidate pagination",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorrectionPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "invalid_input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "permission_denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "not_found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "method_not_allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "idempotency_conflict, invalid_return, invalid_payable, currency_mismatch, insufficient_outstanding or period_closed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Generic server failure; transaction rolled back",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "confirmSupplierReturnCorrection",
+        "summary": "finance.payable.manage: post one manual correction",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CorrectionInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Exact idempotent replay, no new changes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Correction"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "New immutable correction posted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Correction"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "invalid_input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "permission_denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "not_found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "method_not_allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "idempotency_conflict, invalid_return, invalid_payable, currency_mismatch, insufficient_outstanding or period_closed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Generic server failure; transaction rolled back",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "Correction": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9223372036854775807
+          },
+          "review_id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9223372036854775807
+          },
+          "return_id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9223372036854775807
+          },
+          "payable_id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9223372036854775807
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^[0-9]+\\.[0-9]{2}$"
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "posting_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "document_no": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          },
+          "outstanding_before": {
+            "type": "string",
+            "pattern": "^[0-9]+\\.[0-9]{2}$"
+          },
+          "outstanding_after": {
+            "type": "string",
+            "pattern": "^[0-9]+\\.[0-9]{2}$"
+          },
+          "confirmed_by_name": {
+            "type": "string"
+          },
+          "confirmed_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "review_id",
+          "return_id",
+          "payable_id",
+          "request_id",
+          "amount",
+          "currency",
+          "posting_date",
+          "document_no",
+          "reason",
+          "outstanding_before",
+          "outstanding_after",
+          "confirmed_by_name",
+          "confirmed_at"
+        ],
+        "additionalProperties": false
+      },
+      "Payable": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9223372036854775807
+          },
+          "supplier_id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9223372036854775807
+          },
+          "purchase_order_id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9223372036854775807
+          },
+          "source_type": {
+            "type": "string"
+          },
+          "source_id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9223372036854775807
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^[0-9]+\\.[0-9]{2}$"
+          },
+          "outstanding_amount": {
+            "type": "string",
+            "pattern": "^[0-9]+\\.[0-9]{2}$"
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "partially_paid"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "supplier_id",
+          "purchase_order_id",
+          "source_type",
+          "source_id",
+          "amount",
+          "outstanding_amount",
+          "currency",
+          "status"
+        ],
+        "additionalProperties": false
+      },
+      "CorrectionPage": {
+        "type": "object",
+        "properties": {
+          "review_id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9223372036854775807
+          },
+          "review_status": {
+            "type": "string",
+            "enum": [
+              "pending"
+            ]
+          },
+          "corrections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Correction"
+            }
+          },
+          "correction_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "payables": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Payable"
+            }
+          },
+          "payable_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "payable_limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "payable_offset": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "can_confirm": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "review_id",
+          "review_status",
+          "corrections",
+          "correction_count",
+          "payables",
+          "payable_count",
+          "limit",
+          "offset",
+          "payable_limit",
+          "payable_offset",
+          "can_confirm"
+        ],
+        "additionalProperties": false
+      },
+      "CorrectionInput": {
+        "type": "object",
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "payable_id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9223372036854775807
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^[0-9]{1,14}(\\.[0-9]{1,2})?$",
+            "description": "Positive exact decimal, zero forbidden; no exponent or rounding."
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "posting_date": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+          },
+          "document_no": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          }
+        },
+        "required": [
+          "request_id",
+          "payable_id",
+          "amount",
+          "currency",
+          "posting_date",
+          "document_no",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "error"
+        ]
+      }
+    }
+  }
+}

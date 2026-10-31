@@ -29,7 +29,7 @@ export interface Employee {
   status: 'draft' | 'pending_approval' | 'active' | 'terminated' | 'rejected'; user_id?: number | null;
   created_at?: string; updated_at?: string;
 }
-export interface ApprovalRequest { id: number; business_type: string; business_id: number; status: string; applicant_id?: number; assigned_to_id?: number | null; current_node?: number; applicant_name?: string; created_at?: string; updated_at?: string; actions?: ApprovalAction[]; versions?: Array<{ version_no: number; reason: string; created_at: string }>; }
+export interface ApprovalRequest { id: number; business_type: string; business_id: number; status: string; applicant_id?: number; assigned_to_id?: number | null; current_node?: number; applicant_name?: string; created_at?: string; updated_at?: string; actions?: ApprovalAction[]; snapshot?: PaymentApprovalSnapshot; allowed_actions?: Array<'approve'|'reject'|'return'>; versions?: Array<{ version_no: number; reason: string; created_at: string }>; }
 export interface ApprovalAction { id: number; action: string; comment?: string; actor_name?: string; created_at?: string; }
 export interface SystemPermission { id: number; code: string; name: string; description?: string; }
 export interface SystemRole { id: number; code: string; name: string; description?: string; active: boolean; permissions: SystemPermission[]; member_count?: number; }
@@ -432,3 +432,64 @@ export interface WriteoffInput {
   items: Array<{ sku_id: number; qty: string; location_id?: number; batch_no?: string; expiry_date?: string }>;
 }
 export interface WriteoffQuery extends WarehouseListQuery { status?: WriteoffStatus }
+
+
+export type SupplierReturnStatus = WriteoffStatus;
+export type SupplierReturnReason = 'damage' | 'expiry' | 'other';
+export interface SupplierReturnReceiptLine extends WarehouseNames {
+  receipt_item_id: number; sku_id: number; sku_code: string; location_id: number | null; location_code: string | null;
+  batch_no: string; expiry_date: string | null; received_qty: number; returned_qty: number; returnable_qty: number;
+}
+export interface SupplierReturnReceipt {
+  id: number; receipt_no: string; warehouse_id: number; supplier_id: number; supplier_name: string; items: SupplierReturnReceiptLine[];
+}
+export interface SupplierReturnCatalog { warehouses: Array<WarehouseNames & {id:number}>; receipts: SupplierReturnReceipt[]; permissions: string[]; receipt_count: number; limit: number; offset: number }
+export interface SupplierReturn extends WarehouseRecordNames {
+  id: number; return_no: string; receipt_id: number; receipt_no: string; warehouse_id: number; supplier_id: number; supplier_name: string;
+  reason_type: SupplierReturnReason; reason: string; status: SupplierReturnStatus; review_comment: string;
+  created_at: string; created_by_name: string; approved_at: string | null; approved_by_name: string | null;
+  posted_at: string | null; posted_by_name: string | null; allowed_actions: WriteoffAction[]; finance_review_status: string | null; photos_required: boolean;
+  items: Array<WriteoffLine & { receipt_item_id: number }>; photos: WriteoffPhoto[]; history: StockWriteoff['history'];
+}
+export interface SupplierReturnInput { return_no: string; receipt_id: number; reason_type: SupplierReturnReason; reason: string; items: Array<{receipt_item_id: number; qty: number}> }
+export interface SupplierReturnFinance {
+  id: number; return_id: number; return_no: string; receipt_id: number; receipt_no: string; supplier_id: number; supplier_name: string;
+  warehouse_id: number; status: 'pending'; created_at: string; posted_at: string; source_currency: string; valuation_currency: null; valuation_status: 'currency_unresolved'; stock_valuation: string; photos: WriteoffPhoto[];
+  items: Array<WarehouseNames & { receipt_item_id: number; sku_id: number; sku_code: string; qty: string; unit_cost: string }>;
+}
+
+export interface SupplierReturnCorrection {
+  id: number; review_id: number; return_id: number; payable_id: number; request_id: string;
+  amount: string; currency: string; posting_date: string; document_no: string; reason: string;
+  outstanding_before: string; outstanding_after: string; confirmed_by_name: string; confirmed_at: string;
+}
+export interface SupplierReturnCorrectionInput {
+  request_id: string; payable_id: number; amount: string; currency: string;
+  posting_date: string; document_no: string; reason: string;
+}
+export interface SupplierReturnCorrectionPayable {
+  id: number; supplier_id: number; purchase_order_id: number; source_type: string; source_id: number;
+  amount: string; outstanding_amount: string; currency: string; status: 'open' | 'partially_paid';
+}
+export interface SupplierReturnCorrectionsResponse {
+  review_id: number; review_status: 'pending'; corrections: SupplierReturnCorrection[]; correction_count: number;
+  payables: SupplierReturnCorrectionPayable[]; payable_count: number; can_confirm: boolean;
+  limit: number; offset: number; payable_limit: number; payable_offset: number;
+}
+
+
+export interface FinancePeriod {
+  year: number; month: number; is_closed: boolean;
+  closed_by_name: string | null; closed_at: string | null; close_reason: string;
+}
+export interface FinancePeriodsResponse { year: number; items: FinancePeriod[]; can_close: boolean }
+
+
+export type PaymentRequestStatus = 'draft'|'pending_approval'|'approved'|'returned'|'rejected'|'cancelled'|'paid';
+export interface PaymentProof { id:number; file_name:string; content_type:string; size:number; download_url:string }
+export interface PaymentApprovalSnapshot { payment_request_id:number; request_no:string; payable_id:number; supplier_id:number; supplier_name:string; account_id:number; account_name:string; amount:string; currency:string; planned_payment_date:string; purpose:string; route:Array<{order:number;assignee_id:number;assignee_name:string}>; proofs:PaymentProof[] }
+export interface PaymentRequestInput { request_id:string; request_no:string; payable_id:number; account_id:number; amount:string; currency:string; planned_payment_date:string; purpose:string }
+export interface FinancePaymentRequest { id:number; request_id:string; request_no:string; payable_id:number; supplier_id:number; supplier_name:string; payable_outstanding_amount:string; account_id:number; account_name:string; amount:string; currency:string; planned_payment_date:string; purpose:string; status:PaymentRequestStatus; created_by_id:number; created_by_name:string; created_at:string; approval_id:number|null; approval_status:string|null; assigned_to_id:number|null; assigned_to_name:string|null; current_node:number|null; payment_id:number|null; allowed_actions:string[]; proofs:PaymentProof[]; history:Array<{action:string;actor_id:number;actor_name:string;comment:string;created_at:string}> }
+export interface PaymentRequestCatalog { payables:Array<{id:number;supplier_id:number;supplier_name:string;source_id:number;amount:string;outstanding_amount:string;currency:string;status:string}>; payable_count:number; accounts:Array<{id:number;name:string;currency:string}>; limit:number; offset:number; flow_configured:boolean }
+export interface PaymentExecutionInput { payment_request_id:number; account_id:number; amount:string; payment_date:string; transaction_no:string; proof_id:number }
+export interface PaymentExecutionResult { id:number; payment_request_id:number; payable:{id:number;amount:string;outstanding_amount:string;currency:string;status:string} }

@@ -1,0 +1,1943 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Supplier return API",
+    "version": "1.0.0",
+    "description": "Receipt-bound returns. Warehouse ACL and permissions apply. Finance queue requires finance.payable.read; pending is not a posted accounting adjustment. See docs/api/supplier-returns.md and ADR-0004."
+  },
+  "servers": [
+    {
+      "url": "/api"
+    }
+  ],
+  "paths": {
+    "/warehouse/returns/catalog": {
+      "get": {
+        "operationId": "supplierReturnCatalog",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Catalog"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000,
+              "default": 0
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "receipt_id",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "warehouse_id",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/warehouse/returns": {
+      "get": {
+        "operationId": "supplierReturnList",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReturnPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000,
+              "default": 0
+            }
+          },
+          {
+            "name": "id",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "warehouse_id",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "post": {
+        "operationId": "supplierReturnCreate",
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Mutation"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReturnInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/warehouse/returns/{return_id}": {
+      "patch": {
+        "operationId": "supplierReturnEdit",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Mutation"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReturnInput"
+              }
+            }
+          }
+        }
+      },
+      "parameters": [
+        {
+          "name": "return_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      ]
+    },
+    "/finance/supplier-returns": {
+      "get": {
+        "operationId": "supplierReturnFinanceQueue",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FinancePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000,
+              "default": 0
+            }
+          },
+          {
+            "name": "return_id",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/warehouse/returns/{return_id}/submit": {
+      "post": {
+        "operationId": "supplierReturnSubmit",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Mutation"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "parameters": [
+        {
+          "name": "return_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      ]
+    },
+    "/warehouse/returns/{return_id}/review": {
+      "post": {
+        "operationId": "supplierReturnReview",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Mutation"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewInput"
+              }
+            }
+          }
+        }
+      },
+      "parameters": [
+        {
+          "name": "return_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      ]
+    },
+    "/warehouse/returns/{return_id}/post": {
+      "post": {
+        "operationId": "supplierReturnPost",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Mutation"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "parameters": [
+        {
+          "name": "return_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      ]
+    },
+    "/warehouse/returns/{return_id}/cancel": {
+      "post": {
+        "operationId": "supplierReturnCancel",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Mutation"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelInput"
+              }
+            }
+          }
+        }
+      },
+      "parameters": [
+        {
+          "name": "return_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      ]
+    },
+    "/warehouse/returns/{return_id}/photos": {
+      "post": {
+        "operationId": "supplierReturnUploadPhoto",
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Photo"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                },
+                "required": [
+                  "file"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "parameters": [
+        {
+          "name": "return_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      ]
+    },
+    "/warehouse/returns/{return_id}/photos/{photo_id}": {
+      "delete": {
+        "operationId": "supplierReturnRemovePhoto",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhotoRemoved"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "parameters": [
+        {
+          "name": "return_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        {
+          "name": "photo_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      ]
+    },
+    "/warehouse/returns/{return_id}/photos/{photo_id}/download": {
+      "get": {
+        "operationId": "supplierReturnDownloadPhoto",
+        "responses": {
+          "200": {
+            "description": "Private canonical image; current permission and scope rechecked",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/webp": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "parameters": [
+        {
+          "name": "return_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        {
+          "name": "photo_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      ]
+    },
+    "/finance/supplier-returns/{review_id}/photos/{photo_id}/download": {
+      "get": {
+        "operationId": "supplierReturnFinanceDownloadPhoto",
+        "responses": {
+          "200": {
+            "description": "Private canonical image; current permission and scope rechecked",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/webp": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Validation, permission, scope or conflict error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "parameters": [
+        {
+          "name": "photo_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        {
+          "name": "review_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      ]
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "error",
+          "code"
+        ]
+      },
+      "Mutation": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status"
+        ]
+      },
+      "ReturnInput": {
+        "type": "object",
+        "properties": {
+          "return_no": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "receipt_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "reason_type": {
+            "type": "string",
+            "enum": [
+              "damage",
+              "expiry",
+              "other"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LineInput"
+            }
+          }
+        },
+        "required": [
+          "return_no",
+          "receipt_id",
+          "reason_type",
+          "reason",
+          "items"
+        ]
+      },
+      "LineInput": {
+        "type": "object",
+        "properties": {
+          "receipt_item_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "qty": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          }
+        },
+        "required": [
+          "receipt_item_id",
+          "qty"
+        ]
+      },
+      "ReviewInput": {
+        "type": "object",
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": [
+              "approve",
+              "return",
+              "reject"
+            ]
+          },
+          "comment": {
+            "type": "string",
+            "maxLength": 4000
+          }
+        },
+        "required": [
+          "decision"
+        ]
+      },
+      "CancelInput": {
+        "type": "object",
+        "properties": {
+          "comment": {
+            "type": "string",
+            "maxLength": 4000
+          }
+        },
+        "required": []
+      },
+      "Photo": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "file_name": {
+            "type": "string"
+          },
+          "content_type": {
+            "type": "string",
+            "enum": [
+              "image/jpeg",
+              "image/png",
+              "image/webp"
+            ]
+          },
+          "size": {
+            "type": "integer"
+          },
+          "download_url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "file_name",
+          "content_type",
+          "size",
+          "download_url"
+        ]
+      },
+      "History": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "action": {
+            "type": "string"
+          },
+          "actor_name": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "comment": {
+            "type": "string"
+          }
+        },
+        "required": []
+      },
+      "Line": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "receipt_item_id": {
+            "type": "integer"
+          },
+          "sku_id": {
+            "type": "integer"
+          },
+          "sku_code": {
+            "type": "string"
+          },
+          "name_ru": {
+            "type": "string"
+          },
+          "name_ky": {
+            "type": "string"
+          },
+          "name_zh": {
+            "type": "string"
+          },
+          "location_id": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "location_code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "qty": {
+            "type": "string"
+          },
+          "batch_no": {
+            "type": "string"
+          },
+          "expiry_date": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "unit_cost": {
+            "type": "string",
+            "description": "Only warehouse.cost.read after posting"
+          }
+        },
+        "required": []
+      },
+      "Return": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "return_no": {
+            "type": "string"
+          },
+          "receipt_id": {
+            "type": "integer"
+          },
+          "receipt_no": {
+            "type": "string"
+          },
+          "supplier_id": {
+            "type": "integer"
+          },
+          "supplier_name": {
+            "type": "string"
+          },
+          "warehouse_id": {
+            "type": "integer"
+          },
+          "warehouse_name_ru": {
+            "type": "string"
+          },
+          "warehouse_name_ky": {
+            "type": "string"
+          },
+          "warehouse_name_zh": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "pending_approval",
+              "approved",
+              "posted",
+              "rejected",
+              "cancelled"
+            ]
+          },
+          "reason_type": {
+            "type": "string",
+            "enum": [
+              "damage",
+              "expiry",
+              "other"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "created_by_name": {
+            "type": "string"
+          },
+          "approved_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "approved_by_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "posted_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "posted_by_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "review_comment": {
+            "type": "string"
+          },
+          "allowed_actions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "edit",
+                "upload_photo",
+                "delete_photo",
+                "submit",
+                "cancel",
+                "review",
+                "post"
+              ]
+            }
+          },
+          "finance_review_status": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "pending",
+              null
+            ]
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Line"
+            }
+          },
+          "photos": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Photo"
+            }
+          },
+          "history": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/History"
+            }
+          },
+          "photos_required": {
+            "type": "boolean"
+          }
+        },
+        "required": []
+      },
+      "Warehouse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "name_ru": {
+            "type": "string"
+          },
+          "name_ky": {
+            "type": "string"
+          },
+          "name_zh": {
+            "type": "string"
+          }
+        },
+        "required": []
+      },
+      "ReceiptLine": {
+        "type": "object",
+        "properties": {
+          "receipt_item_id": {
+            "type": "integer"
+          },
+          "sku_id": {
+            "type": "integer"
+          },
+          "sku_code": {
+            "type": "string"
+          },
+          "name_ru": {
+            "type": "string"
+          },
+          "name_ky": {
+            "type": "string"
+          },
+          "name_zh": {
+            "type": "string"
+          },
+          "location_id": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "location_code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "batch_no": {
+            "type": "string"
+          },
+          "expiry_date": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "received_qty": {
+            "type": "integer"
+          },
+          "returned_qty": {
+            "type": "integer"
+          },
+          "returnable_qty": {
+            "type": "integer"
+          }
+        },
+        "required": []
+      },
+      "Receipt": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "receipt_no": {
+            "type": "string"
+          },
+          "warehouse_id": {
+            "type": "integer"
+          },
+          "supplier_id": {
+            "type": "integer"
+          },
+          "supplier_name": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReceiptLine"
+            }
+          }
+        },
+        "required": []
+      },
+      "Catalog": {
+        "type": "object",
+        "properties": {
+          "warehouses": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Warehouse"
+            }
+          },
+          "receipts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Receipt"
+            }
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "receipt_count": {
+            "type": "integer"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "offset": {
+            "type": "integer"
+          }
+        },
+        "required": []
+      },
+      "FinanceReview": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "return_id": {
+            "type": "integer"
+          },
+          "return_no": {
+            "type": "string"
+          },
+          "receipt_id": {
+            "type": "integer"
+          },
+          "receipt_no": {
+            "type": "string"
+          },
+          "supplier_id": {
+            "type": "integer"
+          },
+          "supplier_name": {
+            "type": "string"
+          },
+          "warehouse_id": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending"
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "posted_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "source_currency": {
+            "type": "string",
+            "description": "Source PO reference currency; NOT stock valuation currency"
+          },
+          "valuation_currency": {
+            "type": "null"
+          },
+          "valuation_status": {
+            "type": "string",
+            "enum": [
+              "currency_unresolved"
+            ]
+          },
+          "stock_valuation": {
+            "type": "string",
+            "description": "Numerical stock outflow valuation; not supplier credit or refund"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FinanceLine"
+            }
+          },
+          "photos": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Photo"
+            }
+          }
+        },
+        "required": []
+      },
+      "FinanceLine": {
+        "type": "object",
+        "properties": {
+          "receipt_item_id": {
+            "type": "integer"
+          },
+          "sku_id": {
+            "type": "integer"
+          },
+          "sku_code": {
+            "type": "string"
+          },
+          "name_ru": {
+            "type": "string"
+          },
+          "name_ky": {
+            "type": "string"
+          },
+          "name_zh": {
+            "type": "string"
+          },
+          "qty": {
+            "type": "string"
+          },
+          "unit_cost": {
+            "type": "string"
+          }
+        },
+        "required": []
+      },
+      "ReturnPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Return"
+            }
+          },
+          "count": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "count"
+        ]
+      },
+      "FinancePage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FinanceReview"
+            }
+          },
+          "count": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "count"
+        ]
+      },
+      "PhotoRemoved": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "removed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "removed"
+        ]
+      }
+    }
+  }
+}

@@ -1,3 +1,6 @@
+from backend.presentation.api.finance_period_views import finance_periods_view, close_finance_period_view
+from backend.presentation.api.finance_return_views import supplier_return_corrections_view
+from backend.presentation.api.warehouse_return_views import return_catalog_view, returns_view, return_detail_view, return_photos_view, return_photo_detail_view, return_photo_download_view, return_action_view, finance_supplier_returns_view, finance_supplier_return_photo_view
 from backend.presentation.api.warehouse_writeoff_views import writeoff_catalog_view, writeoffs_view, writeoff_detail_view, writeoff_photos_view, writeoff_photo_detail_view, writeoff_photo_download_view, writeoff_action_view
 from backend.presentation.api.warehouse_transfer_views import transfer_catalog_view, transfer_detail_view, transfer_action_view
 from django.urls import path
@@ -29,6 +32,7 @@ from backend.presentation.api.expense_views import (
 )
 from backend.presentation.api.warehouse_views import warehouse_catalog_view, warehouse_movements_view
 from backend.presentation.api.procurement_views import suppliers_view, supplier_submit_view, skus_view, sku_submit_view, sku_certificates_view, supplier_quotes_view, purchase_orders_view, purchase_order_submit_view, purchase_receipts_view, stock_transfers_view, stock_counts_view, post_purchase_receipt_view, warehouse_inventory_view, expiry_alerts_view, approve_stock_count_view, post_stock_transfer_view
+from backend.presentation.api.finance_payment_request_views import (payment_requests_view,payment_request_catalog_view,payment_request_detail_view,payment_request_action_view,payment_request_proofs_view,payment_request_proof_delete_view,payment_request_proof_download_view)
 from backend.presentation.api.finance_platform_views import finance_accounts_view, finance_payables_view, supplier_statements_view, finance_payment_view, confirm_supplier_statement_view
 from backend.presentation.api.kpi_views import kpi_templates_view, kpi_tasks_view, kpi_task_score_view, kpi_task_acknowledge_view, kpi_task_review_view, kpi_task_archive_view, kpi_assignees_view
 from backend.presentation.api.admin_platform_views import assets_view, asset_custody_view, supply_requests_view, meeting_bookings_view, notices_view, licenses_view
@@ -152,6 +156,16 @@ urlpatterns = [
     path("warehouse/alerts/expiry", expiry_alerts_view, name="api-warehouse-expiry-alerts"),
     path("warehouse/counts", stock_counts_view, name="api-warehouse-counts"),
     path("warehouse/counts/<int:count_id>/approve", approve_stock_count_view, name="api-warehouse-count-approve"),
+    path("warehouse/returns/catalog", return_catalog_view, name="api-return-catalog"),
+    path("warehouse/returns", returns_view, name="api-returns"),
+    path("warehouse/returns/<int:return_id>", return_detail_view, name="api-return-detail"),
+    path("warehouse/returns/<int:return_id>/photos", return_photos_view, name="api-return-photos"),
+    path("warehouse/returns/<int:return_id>/photos/<int:photo_id>", return_photo_detail_view, name="api-return-photo-detail"),
+    path("warehouse/returns/<int:return_id>/photos/<int:photo_id>/download", return_photo_download_view, name="api-return-photo-download"),
+    path("warehouse/returns/<int:return_id>/<str:action>", return_action_view, name="api-return-action"),
+    path("finance/supplier-returns/<int:review_id>/photos/<int:photo_id>/download", finance_supplier_return_photo_view, name="api-finance-return-photo"),
+    path("finance/supplier-returns/<int:review_id>/corrections", supplier_return_corrections_view, name="api-finance-return-corrections"),
+    path("finance/supplier-returns", finance_supplier_returns_view, name="api-finance-supplier-returns"),
     path("warehouse/writeoffs/catalog", writeoff_catalog_view, name="api-writeoff-catalog"),
     path("warehouse/writeoffs", writeoffs_view, name="api-writeoffs"),
     path("warehouse/writeoffs/<int:writeoff_id>", writeoff_detail_view, name="api-writeoff-detail"),
@@ -164,7 +178,16 @@ urlpatterns = [
     path("warehouse/transfers", stock_transfers_view, name="api-warehouse-transfers"),
     path("warehouse/transfers/<int:transfer_id>/post", post_stock_transfer_view, name="api-warehouse-transfer-post"),
     path("warehouse/transfers/<int:transfer_id>/<str:action>", transfer_action_view, name="api-transfer-action"),
+    path("finance/periods", finance_periods_view, name="api-finance-periods"),
+    path("finance/periods/<int:year>/<int:month>/close", close_finance_period_view, name="api-finance-period-close"),
     path("finance/accounts", finance_accounts_view, name="api-finance-accounts"),
+    path("finance/payment-requests",payment_requests_view),
+    path("finance/payment-requests/catalog",payment_request_catalog_view),
+    path("finance/payment-requests/<int:request_id>",payment_request_detail_view),
+    path("finance/payment-requests/<int:request_id>/proofs",payment_request_proofs_view),
+    path("finance/payment-requests/<int:request_id>/proofs/<int:proof_id>",payment_request_proof_delete_view),
+    path("finance/payment-requests/<int:request_id>/proofs/<int:proof_id>/download",payment_request_proof_download_view),
+    path("finance/payment-requests/<int:request_id>/<str:action>",payment_request_action_view),
     path("finance/payables", finance_payables_view, name="api-finance-payables"),
     path("finance/supplier-statements", supplier_statements_view, name="api-supplier-statements"),
     path("finance/payables/<int:payable_id>/payments", finance_payment_view, name="api-finance-payment"),

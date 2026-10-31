@@ -1,5 +1,6 @@
+from backend.application.finance_periods import finance_transaction, require_open_date
 from decimal import Decimal, InvalidOperation
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from backend.infrastructure.persistence.models import FinanceAccountModel, FinancePayableModel, FinancePaymentModel, FinancePeriodModel, SupplierStatementModel, PurchaseOrderModel
@@ -37,6 +38,7 @@ def finance_payables_view(request):
 
 @csrf_exempt
 @login_required_domain
+@finance_transaction
 def supplier_statements_view(request):
     """Supplier reconciliation documents become payables only after explicit confirmation."""
     denied = _require(request, "finance.payable.read" if request.method == "GET" else "finance.payable.manage")
@@ -61,36 +63,30 @@ def supplier_statements_view(request):
         return JsonResponse({"error": "Supplier, purchase order, date range or total is invalid"}, status=400)
     if str(body.get("currency", order.currency)).upper() != order.currency:
         return JsonResponse({"error": "Statement currency must match purchase order currency"}, status=400)
+    require_open_date(period_end)
     try:
         statement = SupplierStatementModel.objects.create(statement_no=number, supplier=order.supplier, purchase_order=order, period_start=period_start, period_end=period_end, total_amount=total, currency=order.currency, created_by_id=request.user_entity.id)
-    except Exception:
+    except IntegrityError:
         return JsonResponse({"error": "A statement for this purchase-order period already exists"}, status=409)
     return JsonResponse(_statement(statement), status=201)
 
 @csrf_exempt
 @login_required_domain
+@finance_transaction
 def finance_payment_view(request, payable_id):
     denied = _require(request, "finance.payment.manage")
     if denied: return denied
     if request.method != "POST": return JsonResponse({"error": "Method not allowed"}, status=405)
-    body = parse_json_body(request)
-    try: amount = Decimal(str(body["amount"]))
-    except (KeyError, InvalidOperation): return JsonResponse({"error": "valid amount is required"}, status=400)
-    if amount <= 0 or not body.get("account_id") or not body.get("payment_date") or not body.get("transaction_no"): return JsonResponse({"error": "account_id, payment_date and transaction_no are required"}, status=400)
-    with transaction.atomic():
-        payable = FinancePayableModel.objects.select_for_update().filter(id=payable_id).first(); account = FinanceAccountModel.objects.select_for_update().filter(id=body["account_id"], is_active=True).first()
-        if not payable or not account: return JsonResponse({"error": "Payable or active account not found"}, status=404)
-        if payable.currency != account.currency or amount > payable.outstanding_amount or amount > account.balance: return JsonResponse({"error": "Insufficient balance, currency mismatch, or amount exceeds debt"}, status=400)
-        from datetime import date
-        try: paid_on = date.fromisoformat(body["payment_date"])
-        except ValueError: return JsonResponse({"error": "Invalid payment_date"}, status=400)
-        if FinancePeriodModel.objects.filter(year=paid_on.year, month=paid_on.month, is_closed=True).exists(): return JsonResponse({"error": "Financial period is closed"}, status=409)
-        payment = FinancePaymentModel.objects.create(payable=payable, account=account, amount=amount, payment_date=paid_on, transaction_no=str(body["transaction_no"]), proof_file=str(body.get("proof_file", "")), created_by_id=request.user_entity.id)
-        account.balance -= amount; account.save(update_fields=["balance"]); payable.outstanding_amount -= amount; payable.status = "paid" if not payable.outstanding_amount else "partially_paid"; payable.save(update_fields=["outstanding_amount", "status"])
-    return JsonResponse({"id": payment.id, "payable": _payable(payable)}, status=201)
+    from backend.application.payment_requests import execute_payment, PaymentRequestError
+    try:
+        payment, created = execute_payment(request.user_entity, payable_id, parse_json_body(request),request.META.get("REMOTE_ADDR",""))
+    except PaymentRequestError as exc:
+        return JsonResponse({"error":exc.message,"code":exc.code},status=exc.status)
+    return JsonResponse({"id":payment.id,"payment_request_id":payment.payment_request_id,"payable":_payable(payment.payable)},status=201 if created else 200)
 
 @csrf_exempt
 @login_required_domain
+@finance_transaction
 def confirm_supplier_statement_view(request, statement_id):
     denied = _require(request, "finance.payable.manage")
     if denied: return denied
@@ -100,6 +96,7 @@ def confirm_supplier_statement_view(request, statement_id):
         if not statement: return JsonResponse({"error": "Statement not found"}, status=404)
         if statement.status != "draft": return JsonResponse({"error": "Only draft statement may be confirmed"}, status=409)
         if statement.purchase_order.status not in ("partially_received", "received", "closed"): return JsonResponse({"error": "Confirmed receiving is required before reconciliation"}, status=400)
+        require_open_date(statement.period_end)
         payable, created = FinancePayableModel.objects.get_or_create(source_type="supplier_statement", source_id=statement.id, defaults={"supplier": statement.supplier, "purchase_order": statement.purchase_order, "amount": statement.total_amount, "outstanding_amount": statement.total_amount, "currency": statement.currency})
         if not created: return JsonResponse({"error": "Payable already exists"}, status=409)
         from django.utils import timezone

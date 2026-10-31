@@ -19,7 +19,7 @@ from backend.infrastructure.persistence.models import (
     PurchaseOrderItemModel, PurchaseReceiptModel, PurchaseReceiptItemModel,
     StockInventoryModel, StockMovementModel, StockBatchModel, StockCountModel,
     StockCountItemModel, StockTransferModel, StockTransferItemModel,
-    GoodsCertificateModel, OperationLogModel, StockWriteoffModel,
+    GoodsCertificateModel, OperationLogModel, StockWriteoffModel, SupplierReturnModel,
 )
 from backend.presentation.api.platform_views import _permissions
 from backend.presentation.api.utils import parse_json_body
@@ -193,9 +193,9 @@ def warehouse_movements_view(request):
     offset = integer(request.GET.get("offset", "0"), low=0, high=1000000)
     entries = list(qs[offset:offset + limit])
     ids = {kind: {entry.source_id for entry in entries if entry.source_type == kind}
-           for kind in ("purchase_receipt", "stock_count", "stock_transfer", "stock_writeoff")}
+           for kind in ("purchase_receipt", "stock_count", "stock_transfer", "stock_writeoff", "supplier_return")}
     numbers = {}
-    for kind, model, field in [("purchase_receipt", PurchaseReceiptModel, "receipt_no"), ("stock_count", StockCountModel, "count_no"), ("stock_writeoff", StockWriteoffModel, "writeoff_no")]:
+    for kind, model, field in [("purchase_receipt", PurchaseReceiptModel, "receipt_no"), ("stock_count", StockCountModel, "count_no"), ("stock_writeoff", StockWriteoffModel, "writeoff_no"), ("supplier_return", SupplierReturnModel, "return_no")]:
         numbers[kind] = dict(model.objects.filter(id__in=ids[kind], warehouse__in=scope(request)).values_list("id", field))
     # Transfer counterparties may read their shared document number, never the other inventory.
     numbers["stock_transfer"] = dict(StockTransferModel.objects.filter(Q(source_warehouse__in=scope(request)) | Q(destination_warehouse__in=scope(request)), id__in=ids["stock_transfer"]).values_list("id", "transfer_no"))

@@ -1,3 +1,4 @@
+from backend.application.finance_periods import finance_transaction, require_open_period
 from decimal import Decimal, InvalidOperation
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -8,6 +9,7 @@ from backend.presentation.middlewares import login_required_domain
 
 @csrf_exempt
 @login_required_domain
+@finance_transaction
 def salaries_view(request):
     denied=_require(request,"finance.salary.manage" if request.method!="GET" else "finance.salary.read")
     if denied:return denied
@@ -17,7 +19,8 @@ def salaries_view(request):
     try:
       employee=EmployeeModel.objects.get(id=b["employee_id"],status="active");year=int(b["year"]);month=int(b["month"]);base=Decimal(str(b["base_salary"]));deduct=Decimal(str(b.get("attendance_deduction",0)));bonus=Decimal(str(b.get("kpi_bonus",0)));other=Decimal(str(b.get("other_adjustment",0)))
     except (KeyError,ValueError,InvalidOperation,EmployeeModel.DoesNotExist):return JsonResponse({"error":"valid active employee, period and amounts are required"},status=400)
-    if not 1<=month<=12 or FinancePeriodModel.objects.filter(year=year,month=month,is_closed=True).exists():return JsonResponse({"error":"invalid or closed financial period"},status=409)
+    if not 1<=year<=9999 or not 1<=month<=12:return JsonResponse({"error":"invalid financial period"},status=400)
+    require_open_period(year,month)
     if not MonthlyTimesheetModel.objects.filter(employee=employee,year=year,month=month,status="confirmed").exists(): return JsonResponse({"error":"Confirmed monthly timesheet is required before payroll"},status=409)
     total=base-deduct+bonus+other
     if total<0:return JsonResponse({"error":"total pay cannot be negative"},status=400)

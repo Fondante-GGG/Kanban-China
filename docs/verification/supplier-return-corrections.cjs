@@ -1,0 +1,51 @@
+// Mock browser integration; no working database or bank records are touched.
+const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
+const assert=require('node:assert/strict'),fs=require('node:fs');
+const {context,state,axeCheck}=require('./supplier-returns-smoke.cjs');
+const labels={"ru": {"title": "Корректировки задолженности", "add": "Уменьшить задолженность", "payable": "Задолженность", "amount": "Сумма уменьшения", "date": "Дата проведения", "document": "Номер корректирующего документа", "reason": "Основание корректировки", "check": "Проверить корректировку", "confirm": "Подтвердить уменьшение долга", "retry": "Повторить", "posted": "Корректировка проведена", "exceeds": "Сумма превышает доступный остаток. Проверьте задолженность.", "closed": "Этот финансовый период закрыт. Выберите допустимую дату проведения.", "forbidden": "Доступ к финансовым данным запрещён."}, "ky": {"title": "Карызды оңдоолор", "add": "Карызды азайтуу", "payable": "Карыз", "amount": "Азайтуу суммасы", "date": "Өткөрүү күнү", "document": "Оңдоочу документтин номери", "reason": "Оңдоонун негизи", "check": "Оңдоону текшерүү", "confirm": "Карызды азайтууну ырастоо", "retry": "Кайталоо", "posted": "Оңдоо өткөрүлдү", "exceeds": "Сумма жеткиликтүү калдыктан ашат. Карызды текшериңиз.", "closed": "Бул финансылык мезгил жабык. Уруксат берилген өткөрүү күнүн тандаңыз.", "forbidden": "Финансылык маалыматка кирүүгө тыюу салынган."}, "zh-Hans": {"title": "应付款调整", "add": "减少应付款", "payable": "应付款", "amount": "减少金额", "date": "入账日期", "document": "调整凭证编号", "reason": "调整依据", "check": "核对调整", "confirm": "确认减少应付款", "retry": "重试", "posted": "调整已入账", "exceeds": "金额超过可用未清余额，请核对应付款。", "closed": "此财务期间已关闭，请选择允许的入账日期。", "forbidden": "无权访问财务数据。"}, "zh-Hant": {"title": "應付款調整", "add": "減少應付款", "payable": "應付款", "amount": "減少金額", "date": "入帳日期", "document": "調整憑證編號", "reason": "調整依據", "check": "核對調整", "confirm": "確認減少應付款", "retry": "重試", "posted": "調整已入帳", "exceeds": "金額超過可用未清餘額，請核對應付款。", "closed": "此財務期間已關閉，請選擇允許的入帳日期。", "forbidden": "無權存取財務資料。"}};
+function fixtures(manage=true){return{manage,corrections:[],requests:[],remaining:'100.00',lost:false,deny:false,closed:false};}
+function cents(s){const [a,b='']=s.split('.');return BigInt(a)*100n+BigInt(b.padEnd(2,'0'));}
+function money(n){return `${n/100n}.${(n%100n).toString().padStart(2,'0')}`;}
+async function bootstrap(page,f,lang){
+ await page.route('**/api/auth/me',route=>route.fulfill({contentType:'application/json',body:JSON.stringify({id:4,email:'finance@test',full_name:'Accountant',role:'accountant',department_id:1,interface_language:lang,assigned_board_id:null,system_permissions:['finance.payable.read',...(f.manage?['finance.payable.manage']:[])]})}));
+ await page.route('**/api/finance/supplier-returns/*/corrections*',async route=>{
+  const req=route.request();if(f.deny)return route.fulfill({status:403,contentType:'application/json',body:JSON.stringify({code:'permission_denied'})});
+  if(req.method()==='GET')return route.fulfill({contentType:'application/json',body:JSON.stringify({review_id:10,review_status:'pending',can_confirm:f.manage,corrections:[...f.corrections].reverse(),correction_count:f.corrections.length,payables:cents(f.remaining)>0n?[{id:7,supplier_id:1,purchase_order_id:1,source_type:'supplier_statement',source_id:3,amount:f.original||'150.00',outstanding_amount:f.remaining,currency:'CNY',status:'partially_paid'}]:[],payable_count:cents(f.remaining)>0n?1:0,limit:20,offset:0,payable_limit:20,payable_offset:0})});
+  const body=req.postDataJSON();f.requests.push(body);const prior=f.corrections.find(x=>x.request_id===body.request_id);
+  if(prior){assert.equal(body.amount,prior.amount);return route.fulfill({contentType:'application/json',body:JSON.stringify(prior)});}
+  if(f.closed)return route.fulfill({status:409,contentType:'application/json',body:JSON.stringify({code:'period_closed'})});
+  assert.equal(typeof body.amount,'string');assert.equal(body.payable_id,7);assert.equal(body.currency,'CNY');assert.match(body.request_id,/^[0-9a-f-]{36}$/i);assert(cents(body.amount)<=cents(f.remaining));
+  const before=f.remaining;f.remaining=money(cents(before)-cents(body.amount));const doc={...body,id:f.corrections.length+1,review_id:10,return_id:1,outstanding_before:before,outstanding_after:f.remaining,confirmed_by_name:'Accountant',confirmed_at:'2026-10-31T09:00:00Z'};f.corrections.push(doc);
+  if(f.lost){f.lost=false;return route.abort('failed');}
+  return route.fulfill({status:201,contentType:'application/json',body:JSON.stringify(doc)});
+ });
+}
+async function open(browser,f,lang='ru',dark=false,width=360){
+ const x=await context(browser,state('posted'),'finance',lang,dark,width,({page})=>bootstrap(page,f,lang));
+ await x.page.getByRole('button',{name:labels[lang].title,exact:true}).click();
+ await x.page.getByRole('heading',{name:labels[lang].title,exact:true}).waitFor();
+ return x;
+}
+async function fill(page,t,amount='25.50'){
+ await page.getByRole('button',{name:t.add,exact:true}).click();
+ await page.getByRole('combobox',{name:new RegExp(t.payable)}).selectOption('7');
+ await page.getByLabel(`${t.amount} (CNY)`,{exact:true}).fill(amount);
+ await page.getByLabel(t.date,{exact:true}).fill('2026-10-31');
+ await page.getByLabel(t.document,{exact:true}).fill('CREDIT-1');
+ await page.getByLabel(t.reason,{exact:true}).fill('Подтверждённое уменьшение долга');
+ await page.getByRole('button',{name:t.check,exact:true}).click();
+}
+(async()=>{const browser=await chromium.launch({headless:true});const results=[];try{
+ // Exact retry after the server commits but its response is lost.
+ const f=fixtures();f.lost=true;const x=await open(browser,f);await fill(x.page,labels.ru);await x.page.getByRole('button',{name:labels.ru.confirm,exact:true}).click();await x.page.getByText('Результат подтверждения неизвестен.',{exact:false}).first().waitFor();await x.page.getByRole('button',{name:'Обновить',exact:true}).click();await x.page.getByText('Результат подтверждения неизвестен.',{exact:false}).first().waitFor();await x.page.getByRole('button',{name:labels.ru.retry,exact:true}).click();await x.page.getByText('Корректировка проведена:',{exact:false}).first().waitFor();assert.equal(f.requests.length,2);assert.deepEqual(f.requests[0],f.requests[1]);assert.equal(f.corrections.length,1);assert.equal(f.remaining,'74.50');assert.deepEqual(x.errors,[]);results.push({case:'lost-response-exact-retry',ok:true});await x.ctx.close();
+ const read=await open(browser,fixtures(false));await read.page.getByRole('heading',{name:labels.ru.title,exact:true}).waitFor();await read.page.getByText('У вас есть доступ к истории без права подтверждения.',{exact:true}).waitFor();assert.equal(await read.page.getByRole('button',{name:labels.ru.add,exact:true}).count(),0);await read.ctx.close();results.push({case:'read-only-no-confirm',ok:true});
+ // Client cap validation, closed-period rejection and explicit retry with a new date.
+ const bad=fixtures(),b=await open(browser,bad);await fill(b.page,labels.ru,'101.00');await b.page.getByText(labels.ru.exceeds,{exact:true}).waitFor();assert.equal(bad.requests.length,0);await b.page.getByLabel(`${labels.ru.amount} (CNY)`,{exact:true}).fill('20.00');await b.page.getByRole('button',{name:labels.ru.check,exact:true}).click();bad.closed=true;await b.page.getByRole('button',{name:labels.ru.confirm,exact:true}).click();await b.page.getByText(labels.ru.closed,{exact:true}).waitFor();assert.equal(bad.corrections.length,0);assert.equal(bad.remaining,'100.00');bad.closed=false;await b.page.getByLabel(labels.ru.date,{exact:true}).fill('2026-11-01');await b.page.getByRole('button',{name:labels.ru.check,exact:true}).click();await b.page.getByRole('button',{name:labels.ru.confirm,exact:true}).click();await b.page.getByText(labels.ru.posted+':',{exact:false}).first().waitFor();assert.equal(bad.remaining,'80.00');assert.notEqual(bad.requests[0].request_id,bad.requests[1].request_id);results.push({case:'cap-validation-closed-period-recovery',ok:true});await b.ctx.close();
+ // Revoked write permission clears financial source data and the edit form.
+ const denied=fixtures(),d=await open(browser,denied);await fill(d.page,labels.ru);denied.deny=true;await d.page.getByRole('button',{name:labels.ru.confirm,exact:true}).click();await d.page.getByRole('alert').first().waitFor();assert.equal(await d.page.getByRole('button',{name:labels.ru.confirm,exact:true}).count(),0);assert.equal(await d.page.getByRole('heading',{name:'Документ: RET-1',exact:true}).count(),0);assert.equal(denied.corrections.length,0);results.push({case:'permission-revoked-clears-card',ok:true});await d.ctx.close();
+ const large=fixtures();large.remaining='99999999999999.99';large.original=large.remaining;const g=await open(browser,large);await fill(g.page,labels.ru,'0.01');const values=await g.page.locator('fieldset dd').allTextContents();assert(values.some(s=>s.replace(/\D/g,'')==='9999999999999998'));await g.page.getByRole('button',{name:labels.ru.confirm,exact:true}).click();await g.page.getByText(labels.ru.posted+':',{exact:false}).first().waitFor();assert.equal(large.remaining,'99999999999999.98');results.push({case:'large-decimal-one-cent-exact',ok:true});await g.ctx.close();
+ for(const lang of Object.keys(labels))for(const dark of[false,true])for(const width of[360,1440]){
+  const f=fixtures(),x=await open(browser,f,lang,dark,width),t=labels[lang];await fill(x.page,t);const violations=await axeCheck(x.page),overflow=await x.page.evaluate(()=>document.documentElement.scrollWidth>innerWidth);console.log(JSON.stringify({lang,dark,width,violations,overflow,errors:x.errors}));assert.deepEqual(x.errors,[]);assert.deepEqual(violations,[]);assert.equal(overflow,false);await x.page.getByRole('button',{name:t.confirm,exact:true}).click();await x.page.getByText(t.posted+':',{exact:false}).first().waitFor();assert.equal(f.remaining,'74.50');assert.equal(f.corrections.length,1);results.push({lang,dark,width,violations,overflow,errors:x.errors});await x.ctx.close();
+ }
+ fs.mkdirSync('/tmp/yrys-return-corrections-check' ,{recursive:true});fs.writeFileSync('/tmp/yrys-return-corrections-check/results.json',JSON.stringify(results,null,2));console.log(JSON.stringify(results));
+ }finally{await browser.close()}})().catch(e=>{console.error(e);process.exitCode=1});

@@ -1,0 +1,2063 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Payment requests and immutable authorizations",
+    "version": "1.0.0",
+    "description": "Configured sequential route only. No reservation, FX or fabricated legacy approvals."
+  },
+  "paths": {
+    "/api/finance/payment-requests": {
+      "get": {
+        "summary": "List payment request summaries",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success or exact repeat",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/List"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, authentication, authorization, state, period or idempotency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, authentication, authorization, state, period or idempotency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, authentication, authorization, state, period or idempotency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, authentication, authorization, state, period or idempotency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, authentication, authorization, state, period or idempotency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "id",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "post": {
+        "summary": "Create draft with stable UUID",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success or exact repeat",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Request"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Created or submitted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Request"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, authentication, authorization, state, period or idempotency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, authentication, authorization, state, period or idempotency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, authentication, authorization, state, period or idempotency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, authentication, authorization, state, period or idempotency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, authentication, authorization, state, period or idempotency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Create"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/finance/payment-requests/catalog": {
+      "get": {
+        "summary": "Bounded debt/account catalog",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success or exact repeat",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Catalog"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, authentication, authorization, state, period or idempotency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, authentication, authorization, state, period or idempotency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, authentication, authorization, state, period or idempotency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, authentication, authorization, state, period or idempotency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, authentication, authorization, state, period or idempotency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "payable_id",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "account_id",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/finance/payment-requests/{request_id}": {
+      "parameters": [
+        {
+          "name": "request_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      ],
+      "get": {
+        "summary": "Read exact financial request",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success or exact repeat",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Request"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, authentication, authorization, state, period or idempotency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, authentication, authorization, state, period or idempotency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, authentication, authorization, state, period or idempotency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, authentication, authorization, state, period or idempotency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, authentication, authorization, state, period or idempotency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Replace editable financial fields",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success or exact repeat",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Request"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, authentication, authorization, state, period or idempotency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, authentication, authorization, state, period or idempotency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, authentication, authorization, state, period or idempotency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, authentication, authorization, state, period or idempotency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, authentication, authorization, state, period or idempotency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Patch"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/finance/payment-requests/{request_id}/submit": {
+      "parameters": [
+        {
+          "name": "request_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      ],
+      "post": {
+        "summary": "submit",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success or exact repeat",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Request"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Created or submitted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Request"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, authentication, authorization, state, period or idempotency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, authentication, authorization, state, period or idempotency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, authentication, authorization, state, period or idempotency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, authentication, authorization, state, period or idempotency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, authentication, authorization, state, period or idempotency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/finance/payment-requests/{request_id}/cancel": {
+      "parameters": [
+        {
+          "name": "request_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      ],
+      "post": {
+        "summary": "cancel",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success or exact repeat",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Request"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, authentication, authorization, state, period or idempotency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, authentication, authorization, state, period or idempotency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, authentication, authorization, state, period or idempotency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, authentication, authorization, state, period or idempotency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, authentication, authorization, state, period or idempotency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "comment": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 4000
+                  }
+                },
+                "required": [
+                  "comment"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/finance/payment-requests/{request_id}/proofs": {
+      "parameters": [
+        {
+          "name": "request_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      ],
+      "post": {
+        "summary": "Upload real private proof",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success or exact repeat",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Proof"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Created or submitted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Proof"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, authentication, authorization, state, period or idempotency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, authentication, authorization, state, period or idempotency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, authentication, authorization, state, period or idempotency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, authentication, authorization, state, period or idempotency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, authentication, authorization, state, period or idempotency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                },
+                "required": [
+                  "file"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/finance/payment-requests/{request_id}/proofs/{proof_id}": {
+      "parameters": [
+        {
+          "name": "request_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        {
+          "name": "proof_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      ],
+      "delete": {
+        "summary": "Soft remove mutable proof",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success or exact repeat",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Deleted"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, authentication, authorization, state, period or idempotency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, authentication, authorization, state, period or idempotency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, authentication, authorization, state, period or idempotency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, authentication, authorization, state, period or idempotency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, authentication, authorization, state, period or idempotency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/finance/payment-requests/{request_id}/proofs/{proof_id}/download": {
+      "parameters": [
+        {
+          "name": "request_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        {
+          "name": "proof_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      ],
+      "get": {
+        "summary": "Download private bytes with finance or exact snapshot permission",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Private proof",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      }
+    },
+    "/api/finance/payables/{payable_id}/payments": {
+      "parameters": [
+        {
+          "name": "payable_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      ],
+      "post": {
+        "summary": "Execute one exact approved request",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success or exact repeat",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Payment"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Created or submitted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Payment"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, authentication, authorization, state, period or idempotency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, authentication, authorization, state, period or idempotency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, authentication, authorization, state, period or idempotency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, authentication, authorization, state, period or idempotency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, authentication, authorization, state, period or idempotency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaymentInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/approvals/{approval_id}/actions": {
+      "parameters": [
+        {
+          "name": "approval_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      ],
+      "post": {
+        "summary": "Decide current payment approval node without self approval",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success or exact repeat",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DecisionResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation, authentication, authorization, state, period or idempotency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validation, authentication, authorization, state, period or idempotency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, authentication, authorization, state, period or idempotency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validation, authentication, authorization, state, period or idempotency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validation, authentication, authorization, state, period or idempotency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Decision"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/approvals/{approval_id}": {
+      "parameters": [
+        {
+          "name": "approval_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      ],
+      "get": {
+        "summary": "Payment branch of generic approval detail; other business types retain their existing contracts",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Immutable financial snapshot with authoritative decision capabilities",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentApprovalDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not assigned/applicant/director or no approval.read"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "error",
+          "code"
+        ]
+      },
+      "Proof": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "file_name": {
+            "type": "string"
+          },
+          "content_type": {
+            "type": "string",
+            "enum": [
+              "application/pdf",
+              "image/jpeg",
+              "image/png",
+              "image/webp"
+            ]
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "download_url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "file_name",
+          "content_type",
+          "size",
+          "download_url"
+        ]
+      },
+      "History": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "actor_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "actor_name": {
+            "type": "string"
+          },
+          "comment": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "action",
+          "actor_id",
+          "actor_name",
+          "comment",
+          "created_at"
+        ]
+      },
+      "Create": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "request_no": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "payable_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "account_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^[0-9]{1,14}(\\.[0-9]{1,2})?$"
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "planned_payment_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "purpose": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          }
+        },
+        "required": [
+          "request_id",
+          "request_no",
+          "payable_id",
+          "account_id",
+          "amount",
+          "currency",
+          "planned_payment_date",
+          "purpose"
+        ]
+      },
+      "Patch": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "payable_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "account_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^[0-9]{1,14}(\\.[0-9]{1,2})?$"
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "planned_payment_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "purpose": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          }
+        },
+        "required": [
+          "payable_id",
+          "account_id",
+          "amount",
+          "currency",
+          "planned_payment_date",
+          "purpose"
+        ]
+      },
+      "Request": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "payment_request_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "request_no": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "payable_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "account_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^[0-9]{1,14}(\\.[0-9]{1,2})?$"
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "planned_payment_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "purpose": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          },
+          "supplier_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "supplier_name": {
+            "type": "string"
+          },
+          "payable_outstanding_amount": {
+            "type": "string",
+            "pattern": "^[0-9]{1,14}(\\.[0-9]{1,2})?$"
+          },
+          "account_name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "pending_approval",
+              "approved",
+              "returned",
+              "rejected",
+              "cancelled",
+              "paid"
+            ]
+          },
+          "created_by_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "created_by_name": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "approval_id": {
+            "type": "integer",
+            "minimum": 1,
+            "nullable": true
+          },
+          "approval_status": {
+            "type": "string",
+            "nullable": true
+          },
+          "assigned_to_id": {
+            "type": "integer",
+            "minimum": 1,
+            "nullable": true
+          },
+          "assigned_to_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "current_node": {
+            "type": "integer",
+            "minimum": 1,
+            "nullable": true
+          },
+          "payment_id": {
+            "type": "integer",
+            "minimum": 1,
+            "nullable": true
+          },
+          "allowed_actions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "edit",
+                "submit",
+                "cancel",
+                "pay",
+                "upload_proof",
+                "delete_proof"
+              ]
+            }
+          },
+          "proofs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Proof"
+            }
+          },
+          "history": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/History"
+            }
+          },
+          "history_count": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "id",
+          "payment_request_id",
+          "request_id",
+          "request_no",
+          "payable_id",
+          "account_id",
+          "amount",
+          "currency",
+          "planned_payment_date",
+          "purpose",
+          "supplier_id",
+          "supplier_name",
+          "payable_outstanding_amount",
+          "account_name",
+          "status",
+          "created_by_id",
+          "created_by_name",
+          "created_at",
+          "approval_id",
+          "approval_status",
+          "assigned_to_id",
+          "assigned_to_name",
+          "current_node",
+          "payment_id",
+          "allowed_actions",
+          "proofs",
+          "history",
+          "history_count"
+        ]
+      },
+      "Payable": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "supplier_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "purchase_order_id": {
+            "type": "integer",
+            "minimum": 1,
+            "nullable": true
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^[0-9]{1,14}(\\.[0-9]{1,2})?$"
+          },
+          "outstanding_amount": {
+            "type": "string",
+            "pattern": "^[0-9]{1,14}(\\.[0-9]{1,2})?$"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "due_date": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "supplier_id",
+          "purchase_order_id",
+          "amount",
+          "outstanding_amount",
+          "currency",
+          "due_date",
+          "status"
+        ]
+      },
+      "CatalogPayable": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "supplier_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "supplier_name": {
+            "type": "string"
+          },
+          "source_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^[0-9]{1,14}(\\.[0-9]{1,2})?$"
+          },
+          "outstanding_amount": {
+            "type": "string",
+            "pattern": "^[0-9]{1,14}(\\.[0-9]{1,2})?$"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "supplier_id",
+          "supplier_name",
+          "source_id",
+          "amount",
+          "outstanding_amount",
+          "currency",
+          "status"
+        ]
+      },
+      "Account": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "name": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "currency"
+        ]
+      },
+      "List": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/Request"
+            }
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "can_create": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "items",
+          "count",
+          "limit",
+          "offset",
+          "can_create"
+        ]
+      },
+      "Catalog": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "payables": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/CatalogPayable"
+            }
+          },
+          "payable_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "accounts": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/Account"
+            }
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "flow_configured": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "payables",
+          "payable_count",
+          "accounts",
+          "limit",
+          "offset",
+          "flow_configured"
+        ]
+      },
+      "PaymentInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "payment_request_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "account_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^[0-9]{1,14}(\\.[0-9]{1,2})?$"
+          },
+          "payment_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "transaction_no": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "proof_id": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "payment_request_id",
+          "account_id",
+          "amount",
+          "payment_date",
+          "transaction_no",
+          "proof_id"
+        ]
+      },
+      "Payment": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "payment_request_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "payable": {
+            "$ref": "#/components/schemas/Payable"
+          }
+        },
+        "required": [
+          "id",
+          "payment_request_id",
+          "payable"
+        ]
+      },
+      "Deleted": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "Decision": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "approve",
+              "reject",
+              "return"
+            ]
+          },
+          "comment": {
+            "type": "string",
+            "maxLength": 4000
+          }
+        },
+        "required": [
+          "action"
+        ]
+      },
+      "DecisionResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "status": {
+            "type": "string"
+          },
+          "assigned_to_id": {
+            "type": "integer",
+            "minimum": 1,
+            "nullable": true
+          },
+          "current_node": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "assigned_to_id",
+          "current_node"
+        ]
+      },
+      "RouteNode": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "order": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "assignee_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "assignee_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "order",
+          "assignee_id",
+          "assignee_name"
+        ]
+      },
+      "ApprovalSnapshot": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "payment_request_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "request_no": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "payable_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "supplier_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "supplier_name": {
+            "type": "string"
+          },
+          "account_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "account_name": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^[0-9]{1,14}(\\.[0-9]{1,2})?$"
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "planned_payment_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "purpose": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          },
+          "route": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/components/schemas/RouteNode"
+            }
+          },
+          "proofs": {
+            "type": "array",
+            "maxItems": 5,
+            "items": {
+              "$ref": "#/components/schemas/Proof"
+            }
+          }
+        },
+        "required": [
+          "payment_request_id",
+          "request_no",
+          "payable_id",
+          "supplier_id",
+          "supplier_name",
+          "account_id",
+          "account_name",
+          "amount",
+          "currency",
+          "planned_payment_date",
+          "purpose",
+          "route",
+          "proofs"
+        ]
+      },
+      "ApprovalAction": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "comment": {
+            "type": "string"
+          },
+          "actor_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "action",
+          "comment",
+          "actor_id",
+          "created_at"
+        ]
+      },
+      "PaymentApprovalDetail": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "business_type": {
+            "type": "string",
+            "enum": [
+              "finance_payment_request"
+            ]
+          },
+          "business_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "status": {
+            "type": "string"
+          },
+          "applicant_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "assigned_to_id": {
+            "type": "integer",
+            "minimum": 1,
+            "nullable": true
+          },
+          "flow_id": {
+            "type": "integer",
+            "minimum": 1,
+            "nullable": true
+          },
+          "current_node": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "snapshot": {
+            "$ref": "#/components/schemas/ApprovalSnapshot"
+          },
+          "actions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApprovalAction"
+            }
+          },
+          "versions": {
+            "type": "array",
+            "maxItems": 0,
+            "items": {
+              "type": "object"
+            }
+          },
+          "allowed_actions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "approve",
+                "reject",
+                "return"
+              ]
+            }
+          }
+        },
+        "required": [
+          "id",
+          "business_type",
+          "business_id",
+          "status",
+          "applicant_id",
+          "assigned_to_id",
+          "flow_id",
+          "current_node",
+          "created_at",
+          "snapshot",
+          "actions",
+          "versions",
+          "allowed_actions"
+        ]
+      }
+    }
+  }
+}

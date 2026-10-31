@@ -992,13 +992,15 @@ class FinanceAccountModel(models.Model):
 
 
 class FinancePayableModel(models.Model):
-    STATUS = [("open", "Open"), ("partially_paid", "Partially paid"), ("paid", "Paid"), ("cancelled", "Cancelled")]
+    STATUS = [("open", "Open"), ("partially_paid", "Partially paid"), ("paid", "Paid"), ("cancelled", "Cancelled"), ("settled_by_adjustment", "Settled by adjustment")]
     supplier = models.ForeignKey(SupplierModel, on_delete=models.PROTECT); purchase_order = models.ForeignKey(PurchaseOrderModel, null=True, blank=True, on_delete=models.PROTECT)
-    source_type = models.CharField(max_length=64); source_id = models.PositiveBigIntegerField(); amount = models.DecimalField(max_digits=16, decimal_places=2); outstanding_amount = models.DecimalField(max_digits=16, decimal_places=2); currency = models.CharField(max_length=3); due_date = models.DateField(null=True, blank=True); status = models.CharField(max_length=20, choices=STATUS, default="open"); created_at = models.DateTimeField(auto_now_add=True)
+    source_type = models.CharField(max_length=64); source_id = models.PositiveBigIntegerField(); amount = models.DecimalField(max_digits=16, decimal_places=2); outstanding_amount = models.DecimalField(max_digits=16, decimal_places=2); currency = models.CharField(max_length=3); due_date = models.DateField(null=True, blank=True); status = models.CharField(max_length=24, choices=STATUS, default="open"); created_at = models.DateTimeField(auto_now_add=True)
     class Meta: db_table = "finance_payables"; constraints = [models.UniqueConstraint(fields=["source_type", "source_id"], name="unique_payable_source")]
 
 
 class FinancePaymentModel(models.Model):
+    proof = models.ForeignKey("FinancePaymentProofModel", null=True, blank=True, on_delete=models.PROTECT)
+    payment_request = models.OneToOneField("FinancePaymentRequestModel", null=True, blank=True, on_delete=models.PROTECT, related_name="payment")
     payable = models.ForeignKey(FinancePayableModel, on_delete=models.PROTECT, related_name="payments"); account = models.ForeignKey(FinanceAccountModel, on_delete=models.PROTECT); amount = models.DecimalField(max_digits=16, decimal_places=2); payment_date = models.DateField(); transaction_no = models.CharField(max_length=128); proof_file = models.CharField(max_length=500, blank=True, default=""); created_by = models.ForeignKey(UserModel, on_delete=models.PROTECT); created_at = models.DateTimeField(auto_now_add=True)
     class Meta: db_table = "finance_payments"; constraints = [models.UniqueConstraint(fields=["account", "transaction_no"], name="unique_payment_transaction")]
 
@@ -1010,7 +1012,14 @@ class FinanceFxRateModel(models.Model):
 
 class FinancePeriodModel(models.Model):
     year = models.PositiveSmallIntegerField(); month = models.PositiveSmallIntegerField(); is_closed = models.BooleanField(default=False); closed_by = models.ForeignKey(UserModel, null=True, blank=True, on_delete=models.PROTECT); closed_at = models.DateTimeField(null=True, blank=True)
-    class Meta: db_table = "finance_periods"; constraints = [models.UniqueConstraint(fields=["year", "month"], name="unique_finance_period")]
+    close_reason = models.TextField(blank=True, default="")
+    class Meta:
+        db_table = "finance_periods"
+        constraints = [
+            models.UniqueConstraint(fields=["year", "month"], name="unique_finance_period"),
+            models.CheckConstraint(condition=models.Q(year__gte=1, year__lte=9999), name="finance_period_valid_year"),
+            models.CheckConstraint(condition=models.Q(month__gte=1, month__lte=12), name="finance_period_valid_month"),
+        ]
 
 
 class SupplierStatementModel(models.Model):
@@ -1159,3 +1168,129 @@ class StockWriteoffPhotoModel(models.Model):
 
     class Meta:
         db_table = "stock_writeoff_photos"
+
+
+class SupplierReturnModel(models.Model):
+    STATUS = StockWriteoffModel.STATUS
+    return_no = models.CharField(max_length=64, unique=True)
+    receipt = models.ForeignKey(PurchaseReceiptModel, on_delete=models.PROTECT, related_name="supplier_returns")
+    warehouse = models.ForeignKey(WarehouseModel, on_delete=models.PROTECT)
+    reason_type = models.CharField(max_length=16, choices=[("damage", "Damage"), ("expiry", "Expiry"), ("other", "Other")])
+    reason = models.TextField()
+    status = models.CharField(max_length=24, choices=STATUS, default="draft")
+    created_by = models.ForeignKey(UserModel, on_delete=models.PROTECT, related_name="created_supplier_returns")
+    created_at = models.DateTimeField(auto_now_add=True)
+    approved_by = models.ForeignKey(UserModel, null=True, blank=True, on_delete=models.PROTECT, related_name="approved_supplier_returns")
+    approved_at = models.DateTimeField(null=True, blank=True)
+    posted_by = models.ForeignKey(UserModel, null=True, blank=True, on_delete=models.PROTECT, related_name="posted_supplier_returns")
+    posted_at = models.DateTimeField(null=True, blank=True)
+    review_comment = models.TextField(blank=True, default="")
+
+    class Meta:
+        db_table = "supplier_returns"
+
+
+class SupplierReturnItemModel(models.Model):
+    supplier_return = models.ForeignKey(SupplierReturnModel, on_delete=models.CASCADE, related_name="items")
+    receipt_item = models.ForeignKey(PurchaseReceiptItemModel, on_delete=models.PROTECT)
+    qty = models.PositiveIntegerField()
+    unit_cost = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+
+    class Meta:
+        db_table = "supplier_return_items"
+        constraints = [
+            models.UniqueConstraint(fields=["supplier_return", "receipt_item"], name="unique_return_receipt_line"),
+            models.CheckConstraint(condition=models.Q(qty__gt=0), name="supplier_return_positive_qty"),
+            models.CheckConstraint(condition=models.Q(unit_cost__gte=0) | models.Q(unit_cost__isnull=True), name="supplier_return_nonnegative_cost"),
+        ]
+
+
+class SupplierReturnPhotoModel(models.Model):
+    supplier_return = models.ForeignKey(SupplierReturnModel, on_delete=models.PROTECT, related_name="photos")
+    file_path = models.CharField(max_length=255)
+    file_name = models.CharField(max_length=255)
+    content_type = models.CharField(max_length=32)
+    size = models.PositiveIntegerField()
+    is_active = models.BooleanField(default=True)
+    uploaded_by = models.ForeignKey(UserModel, on_delete=models.PROTECT)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "supplier_return_photos"
+
+
+class SupplierReturnFinanceReviewModel(models.Model):
+    """Durable accounting work queue, never a credit note or posted adjustment."""
+    supplier_return = models.OneToOneField(SupplierReturnModel, on_delete=models.PROTECT, related_name="finance_review")
+    status = models.CharField(max_length=16, choices=[("pending", "Pending")], default="pending")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "supplier_return_finance_reviews"
+
+
+class SupplierReturnCorrectionModel(models.Model):
+    """Append-only posted debt adjustment; not a payment or supplier refund."""
+    review = models.ForeignKey(SupplierReturnFinanceReviewModel, on_delete=models.PROTECT, related_name="corrections")
+    payable = models.ForeignKey(FinancePayableModel, on_delete=models.PROTECT, related_name="return_corrections")
+    request_id = models.UUIDField(unique=True)
+    amount = models.DecimalField(max_digits=16, decimal_places=2)
+    currency = models.CharField(max_length=3)
+    posting_date = models.DateField()
+    document_no = models.CharField(max_length=128)
+    reason = models.TextField()
+    outstanding_before = models.DecimalField(max_digits=16, decimal_places=2)
+    outstanding_after = models.DecimalField(max_digits=16, decimal_places=2)
+    confirmed_by = models.ForeignKey(UserModel, on_delete=models.PROTECT)
+    confirmed_at = models.DateTimeField(auto_now_add=True)
+
+    objects = AppendOnlyManager()
+
+    def save(self, *args, **kwargs):
+        if self.pk:
+            raise RuntimeError("Supplier return corrections are append-only")
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise RuntimeError("Supplier return corrections are append-only")
+
+    class Meta:
+        db_table = "supplier_return_corrections"
+        ordering = ["-id"]
+        constraints = [
+            models.CheckConstraint(condition=models.Q(amount__gt=0), name="return_correction_positive_amount"),
+            models.CheckConstraint(condition=models.Q(outstanding_after__gte=0), name="return_correction_nonnegative_debt"),
+            models.CheckConstraint(condition=models.Q(outstanding_before=models.functions.Round(models.F("outstanding_after") + models.F("amount"), precision=2)), name="return_correction_debt_balance"),
+        ]
+
+
+class FinancePaymentRequestModel(models.Model):
+    """Versioned payment authorization; financial fields freeze outside editable states."""
+    request_id = models.UUIDField(unique=True)
+    request_no = models.CharField(max_length=64, unique=True)
+    payable = models.ForeignKey(FinancePayableModel, on_delete=models.PROTECT, related_name="payment_requests")
+    account = models.ForeignKey(FinanceAccountModel, on_delete=models.PROTECT)
+    amount = models.DecimalField(max_digits=16, decimal_places=2)
+    currency = models.CharField(max_length=3)
+    planned_payment_date = models.DateField()
+    purpose = models.TextField()
+    status = models.CharField(max_length=24, default="draft", choices=[(x, x) for x in ("draft", "pending_approval", "approved", "returned", "rejected", "cancelled", "paid")])
+    created_by = models.ForeignKey(UserModel, on_delete=models.PROTECT)
+    created_at = models.DateTimeField(auto_now_add=True)
+    approval = models.OneToOneField(ApprovalRequestModel, null=True, blank=True, on_delete=models.PROTECT, related_name="payment_request")
+    creation_payload = models.JSONField(default=dict)
+    class Meta:
+        db_table = "finance_payment_requests"
+        constraints = [models.CheckConstraint(condition=models.Q(amount__gt=0), name="payment_request_positive_amount")]
+
+
+class FinancePaymentProofModel(models.Model):
+    payment_request = models.ForeignKey(FinancePaymentRequestModel, on_delete=models.PROTECT, related_name="proofs")
+    file_path = models.CharField(max_length=255)
+    file_name = models.CharField(max_length=255)
+    content_type = models.CharField(max_length=64)
+    size = models.PositiveIntegerField()
+    is_active = models.BooleanField(default=True)
+    uploaded_by = models.ForeignKey(UserModel, on_delete=models.PROTECT)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    class Meta: db_table = "finance_payment_proofs"

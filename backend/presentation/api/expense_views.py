@@ -1,3 +1,4 @@
+from backend.application.finance_periods import finance_transaction, require_open_date, business_date
 import json
 import io
 from datetime import date
@@ -55,9 +56,11 @@ def _serialize(expense, detailed=False):
     return data
 
 
-def _get_expense(expense_id):
+def _get_expense(expense_id, lock=False):
     try:
-        return ExpenseModel.objects.select_related("department", "created_by", "reviewed_by").prefetch_related("attachments", "payments", "activity_logs__user").get(id=expense_id)
+        query = ExpenseModel.objects.select_related("department", "created_by", "reviewed_by").prefetch_related("attachments", "payments", "activity_logs__user")
+        if lock: query = query.select_for_update(of=("self",))
+        return query.get(id=expense_id)
     except ExpenseModel.DoesNotExist:
         raise EntityNotFoundException("Expense", expense_id)
 
@@ -115,6 +118,7 @@ def _expense_department_id(user, requested_department_id):
 
 @csrf_exempt
 @login_required_domain
+@finance_transaction
 def expenses_view(request):
     if request.method == "GET":
         qs = ExpenseModel.objects.select_related("department", "created_by", "reviewed_by")
@@ -138,6 +142,7 @@ def expenses_view(request):
     except (InvalidOperation, ValueError): raise ValidationException("Invalid amount or purchase_date")
     if amount <= 0 or body["payment_source"] not in {"company", "personal"}: raise ValidationException("Amount must be positive and payment_source valid")
     department_id = _expense_department_id(request.user_entity, body.get("department_id"))
+    require_open_date(purchase_date)
     expense = ExpenseModel.objects.create(purchase_date=purchase_date, department_id=department_id, category=str(body["category"]).strip(), supplier=str(body.get("supplier", "")).strip(), description=str(body.get("description", "")).strip(), amount=amount, currency=str(body.get("currency", "KGS")).upper(), payment_source=body["payment_source"], payment_method=body["payment_method"], status="draft", created_by_id=request.user_entity.id)
     _log(expense, request.user_entity, "created", new_status="draft")
     return JsonResponse(_serialize(_get_expense(expense.id), True), status=201)
@@ -145,11 +150,13 @@ def expenses_view(request):
 
 @csrf_exempt
 @login_required_domain
+@finance_transaction
 def expense_detail_view(request, expense_id):
-    expense = _get_expense(expense_id)
+    expense = _get_expense(expense_id, lock=request.method == "PUT")
     if not _can_access(request.user_entity, expense): raise PermissionDeniedException("Access to this expense is denied")
     if request.method == "GET": return JsonResponse(_serialize(expense, True))
     if request.method == "PUT":
+        require_open_date(expense.purchase_date)
         if expense.created_by_id != request.user_entity.id or expense.status not in EDITABLE_STATUSES: raise PermissionDeniedException("Only your draft or returned expense can be edited")
         try: body = json.loads(request.body or "{}")
         except json.JSONDecodeError: raise ValidationException("Invalid JSON body")
@@ -166,9 +173,10 @@ def expense_detail_view(request, expense_id):
 
 @csrf_exempt
 @login_required_domain
+@finance_transaction
 def expense_status_view(request, expense_id):
     if request.method != "POST": return JsonResponse({"error": "Method not allowed"}, status=405)
-    expense = _get_expense(expense_id); user = request.user_entity
+    expense = _get_expense(expense_id, lock=True); user = request.user_entity
     try: body = json.loads(request.body or "{}")
     except json.JSONDecodeError: raise ValidationException("Invalid JSON body")
     status = body.get("status"); comment = str(body.get("comment", "")).strip()
@@ -180,6 +188,7 @@ def expense_status_view(request, expense_id):
         if status == "rejected" and not comment: raise ValidationException("Comment is required when rejecting an expense")
     if status not in ALLOWED_STATUS_TRANSITIONS.get(expense.status, set()):
         raise ValidationException(f"Status cannot change from {expense.status} to {status}")
+    require_open_date(expense.purchase_date)
     old_status = expense.status; expense.status = status; expense.accountant_comment = comment if _can_manage(user) else expense.accountant_comment
     if _can_manage(user): expense.reviewed_by_id = user.id; expense.reviewed_at = timezone.now()
     expense.save(); _log(expense, user, "status_changed", old_status, status, comment)
@@ -192,12 +201,14 @@ def expense_status_view(request, expense_id):
 
 @csrf_exempt
 @login_required_domain
+@finance_transaction
 def expense_attachments_view(request, expense_id):
     if request.method != "POST": return JsonResponse({"error": "Method not allowed"}, status=405)
-    expense = _get_expense(expense_id)
+    expense = _get_expense(expense_id, lock=True)
     if expense.created_by_id != request.user_entity.id and not _can_manage(request.user_entity): raise PermissionDeniedException("Cannot attach documents to this expense")
     if expense.status in TERMINAL_ATTACHMENT_STATUSES:
         raise ValidationException("Documents cannot be added after the expense has a final decision")
+    require_open_date(expense.purchase_date)
     upload = request.FILES.get("file")
     if not upload: raise ValidationException("file is required")
     if upload.size > 15 * 1024 * 1024: raise ValidationException("File size must not exceed 15 MB")
@@ -220,6 +231,7 @@ def expense_attachment_download_view(request, attachment_id):
 
 @csrf_exempt
 @login_required_domain
+@finance_transaction
 def reimbursement_payment_view(request, expense_id):
     if request.method != "POST": return JsonResponse({"error": "Method not allowed"}, status=405)
     if not _can_manage(request.user_entity): raise PermissionDeniedException("Only accountant or director can record payment")
@@ -227,7 +239,7 @@ def reimbursement_payment_view(request, expense_id):
     except json.JSONDecodeError: raise ValidationException("Invalid JSON body")
     with transaction.atomic():
         try:
-            expense = ExpenseModel.objects.select_for_update().select_related("department", "created_by", "reviewed_by").get(id=expense_id)
+            expense = ExpenseModel.objects.select_for_update(of=("self",)).select_related("department", "created_by", "reviewed_by").get(id=expense_id)
         except ExpenseModel.DoesNotExist:
             raise EntityNotFoundException("Expense", expense_id)
         if expense.payment_source != "personal" or expense.status != "approved": raise ValidationException("Only approved personal expenses can be paid")
@@ -235,7 +247,9 @@ def reimbursement_payment_view(request, expense_id):
         except InvalidOperation: raise ValidationException("Invalid amount")
         paid_total = ReimbursementPaymentModel.objects.filter(expense_id=expense.id).aggregate(total=Sum("amount"))["total"] or Decimal("0")
         if amount <= 0 or paid_total + amount > expense.amount: raise ValidationException("Payment amount exceeds reimbursement balance")
-        payment = ReimbursementPaymentModel.objects.create(expense=expense, amount=amount, payment_method=str(body.get("payment_method", "bank_transfer")), transaction_number=str(body.get("transaction_number", "")), created_by_id=request.user_entity.id)
+        paid_at = timezone.now()
+        require_open_date(business_date(paid_at))
+        payment = ReimbursementPaymentModel.objects.create(expense=expense, paid_at=paid_at, amount=amount, payment_method=str(body.get("payment_method", "bank_transfer")), transaction_number=str(body.get("transaction_number", "")), created_by_id=request.user_entity.id)
         if paid_total + amount == expense.amount:
             old = expense.status; expense.status = "paid"; expense.save(); _log(expense, request.user_entity, "payment_recorded", old, "paid", payment.transaction_number)
         else: _log(expense, request.user_entity, "partial_payment", comment=payment.transaction_number)

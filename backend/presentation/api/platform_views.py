@@ -27,7 +27,7 @@ from backend.presentation.api.utils import parse_json_body
 from backend.presentation.middlewares import login_required_domain
 
 
-ALL_PERMISSIONS = ["hr.employee.read", "hr.employee.create", "hr.employee.edit", "hr.employee.submit", "hr.employee.approve", "hr.employee.terminate", "hr.employee.onboarding", "rbac.manage", "approval.read", "approval.act", "audit.read", "attendance.timesheet.confirm", "procurement.supplier.read", "procurement.supplier.manage", "procurement.sku.read", "procurement.sku.manage", "procurement.quote.manage", "procurement.order.read", "procurement.order.manage", "warehouse.receipt.read", "warehouse.receipt.manage", "warehouse.receipt.post", "warehouse.inventory.read", "warehouse.cost.read", "warehouse.count.read", "warehouse.count.manage", "warehouse.count.approve", "warehouse.transfer.read", "warehouse.transfer.manage", "warehouse.transfer.post", "warehouse.transfer.approve", "warehouse.transfer.receive", "warehouse.writeoff.read", "warehouse.writeoff.manage", "warehouse.writeoff.approve", "warehouse.writeoff.post", "finance.account.manage", "finance.payable.read", "finance.payable.manage", "finance.payment.manage", "finance.salary.read", "finance.salary.manage", "kpi.read", "kpi.manage", "admin.asset.read", "admin.asset.manage", "admin.request.manage", "admin.notice.read", "admin.notice.manage", "admin.license.read", "admin.license.manage"]
+ALL_PERMISSIONS = ["hr.employee.read", "hr.employee.create", "hr.employee.edit", "hr.employee.submit", "hr.employee.approve", "hr.employee.terminate", "hr.employee.onboarding", "rbac.manage", "approval.read", "approval.act", "audit.read", "attendance.timesheet.confirm", "procurement.supplier.read", "procurement.supplier.manage", "procurement.sku.read", "procurement.sku.manage", "procurement.quote.manage", "procurement.order.read", "procurement.order.manage", "warehouse.receipt.read", "warehouse.receipt.manage", "warehouse.receipt.post", "warehouse.inventory.read", "warehouse.cost.read", "warehouse.count.read", "warehouse.count.manage", "warehouse.count.approve", "warehouse.transfer.read", "warehouse.transfer.manage", "warehouse.transfer.post", "warehouse.transfer.approve", "warehouse.transfer.receive", "warehouse.writeoff.read", "warehouse.writeoff.manage", "warehouse.writeoff.approve", "warehouse.writeoff.post", "warehouse.return.read", "warehouse.return.manage", "warehouse.return.approve", "warehouse.return.post", "finance.period.close", "finance.account.manage", "finance.payable.read", "finance.payable.manage", "finance.payment.manage", "finance.salary.read", "finance.salary.manage", "kpi.read", "kpi.manage", "admin.asset.read", "admin.asset.manage", "admin.request.manage", "admin.notice.read", "admin.notice.manage", "admin.license.read", "admin.license.manage"]
 
 
 def _permissions(user_id):
@@ -298,6 +298,16 @@ def approval_action_view(request, approval_id):
     data = parse_json_body(request); action = data.get("action")
     if action not in ("approve", "reject", "return"): return JsonResponse({"error": "Invalid action"}, status=400)
     if action in ("reject", "return") and not str(data.get("comment", "")).strip(): return JsonResponse({"error": "Comment is required"}, status=400)
+    from backend.application import payment_requests as payment_service
+    if ApprovalRequestModel.objects.filter(id=approval_id,business_type=payment_service.BUSINESS_TYPE).exists():
+        from backend.application.finance_periods import ClosedFinancePeriod
+        try:
+            with transaction.atomic():
+                return JsonResponse(payment_service.decide(approval_id,request.user_entity,action,data.get("comment",""),request.META.get("REMOTE_ADDR","")))
+        except payment_service.PaymentRequestError as exc:
+            return JsonResponse({"error":exc.message,"code":exc.code},status=exc.status)
+        except ClosedFinancePeriod:
+            return JsonResponse({"error":"Financial period is closed","code":"period_closed"},status=409)
     with transaction.atomic():
         approval = ApprovalRequestModel.objects.select_for_update().filter(id=approval_id).first()
         if not approval: return JsonResponse({"error": "Approval not found"}, status=404)
@@ -416,10 +426,15 @@ def approval_detail_view(request, approval_id):
     if not approval: return JsonResponse({"error": "Approval not found"}, status=404)
     if not _can_view_approval(request.user_entity, approval): return JsonResponse({"error": "Permission denied"}, status=403)
     actions = [{"action": a.action, "comment": a.comment, "actor_id": a.actor_id, "created_at": a.created_at.isoformat()} for a in approval.actions.select_related("actor").all()]
-    versions = [{"version_no": v.version_no, "reason": v.reason, "created_at": v.created_at.isoformat()} for v in DocumentVersionModel.objects.filter(document_type="employee", document_id=approval.business_id)]
+    versions = [{"version_no": v.version_no, "reason": v.reason, "created_at": v.created_at.isoformat()} for v in DocumentVersionModel.objects.filter(document_type="employee", document_id=approval.business_id)] if approval.business_type.startswith("employee_") else []
     result = _serialize_approval(approval)
     result.update({"snapshot": approval.snapshot, "actions": actions, "versions": versions})
-    return JsonResponse(result)
+    if approval.business_type == "finance_payment_request":
+        from backend.application.payment_requests import approval_actions
+        result["allowed_actions"] = approval_actions(approval,request.user_entity)
+    response=JsonResponse(result)
+    response["Cache-Control"]="private, no-store"
+    return response
 
 
 @login_required_domain

@@ -1,3 +1,7 @@
+import type { FinancePaymentRequest, PaymentRequestInput, PaymentRequestCatalog, PaymentProof, PaymentExecutionInput, PaymentExecutionResult, PaymentRequestStatus } from '@/types';
+import type { FinancePeriod, FinancePeriodsResponse } from '@/types';
+import type { SupplierReturnCorrectionsResponse, SupplierReturnCorrection, SupplierReturnCorrectionInput } from '@/types';
+import type { SupplierReturn, SupplierReturnCatalog, SupplierReturnInput, SupplierReturnFinance, SupplierReturnStatus } from '@/types';
 import type { StockWriteoff, WriteoffCatalog, WriteoffInput, WriteoffQuery } from '@/types';
 import type { WarehouseCatalog, WarehouseInventory, WarehouseMovement, WarehouseReceipt, WarehouseCount, WarehouseExpiry, WarehouseListQuery, WarehouseReceiptInput, WarehouseCountInput, TransferCatalog, TransferInput, TransferQuery, StockTransfer } from '@/types';
 import type { KpiTemplate, KpiTask, KpiAssignee, KpiComments, KpiCycle, KpiTemplateItem, ApprovalRequest, Employee, SystemPermission, SystemRole, SystemRoleUser } from '@/types';
@@ -14,6 +18,7 @@ class ApiClient {
   }
 
   setToken(token: string | null) {
+    const previousToken = this.token;
     this.token = token;
     if (typeof window !== 'undefined') {
       if (token) {
@@ -21,6 +26,7 @@ class ApiClient {
       } else {
         localStorage.removeItem('kanban_token');
       }
+      if (previousToken !== token) window.dispatchEvent(new Event('kanban-auth-change'));
     }
   }
 
@@ -75,7 +81,59 @@ class ApiClient {
     return res as unknown as T;
   }
 
+  async getPaymentRequests(params: {limit?:number;offset?:number;q?:string;status?:PaymentRequestStatus;id?:number} = {}, signal?:AbortSignal) { return this.request<{items:FinancePaymentRequest[];count:number;limit:number;offset:number;can_create:boolean}>(`/finance/payment-requests?${this.warehouseQuery(params)}`,{signal}); }
+  async getPaymentRequestCatalog(params: {limit?:number;offset?:number;q?:string;payable_id?:number;account_id?:number} = {}, signal?:AbortSignal) { return this.request<PaymentRequestCatalog>(`/finance/payment-requests/catalog?${this.warehouseQuery(params)}`,{signal}); }
+  async getPaymentRequest(id:number,signal?:AbortSignal) { return this.request<FinancePaymentRequest>(`/finance/payment-requests/${id}`,{signal}); }
+  async createPaymentRequest(data:PaymentRequestInput) { return this.request<FinancePaymentRequest>('/finance/payment-requests',{method:'POST',body:JSON.stringify(data)}); }
+  async updatePaymentRequest(id:number,data:Omit<PaymentRequestInput,'request_id'|'request_no'>) { return this.request<FinancePaymentRequest>(`/finance/payment-requests/${id}`,{method:'PATCH',body:JSON.stringify(data)}); }
+  async submitPaymentRequest(id:number) { return this.request<FinancePaymentRequest>(`/finance/payment-requests/${id}/submit`,{method:'POST',body:'{}'}); }
+  async cancelPaymentRequest(id:number,comment:string) { return this.request<FinancePaymentRequest>(`/finance/payment-requests/${id}/cancel`,{method:'POST',body:JSON.stringify({comment})}); }
+  async executePaymentRequest(payableId:number,data:PaymentExecutionInput) { return this.request<PaymentExecutionResult>(`/finance/payables/${payableId}/payments`,{method:'POST',body:JSON.stringify(data)}); }
+  async uploadPaymentProof(id:number,file:File) { const data=new FormData();data.append('file',file);return this.request<PaymentProof>(`/finance/payment-requests/${id}/proofs`,{method:'POST',body:data}); }
+  async deletePaymentProof(id:number,proofId:number) { return this.request<{id:number}>(`/finance/payment-requests/${id}/proofs/${proofId}`,{method:'DELETE'}); }
+  async getPaymentProof(id:number,proofId:number,signal?:AbortSignal):Promise<Blob> { const response=await fetch(`${API_BASE_URL}/finance/payment-requests/${id}/proofs/${proofId}/download`,{headers:{Authorization:`Bearer ${this.getToken()||''}`},signal});if(!response.ok){if(response.status===401)this.setToken(null);const data=await response.json().catch(()=>({}));throw Object.assign(new Error(data.error||`HTTP ${response.status}`),{status:response.status,code:data.code});}return response.blob(); }
+
+  async getFinancePeriods(year: number, signal?: AbortSignal) {
+    return this.request<FinancePeriodsResponse>(`/finance/periods?year=${String(year).padStart(4, '0')}`, { signal });
+  }
+  async closeFinancePeriod(year: number, month: number, reason: string) {
+    return this.request<FinancePeriod>(`/finance/periods/${year}/${month}/close`, { method: 'POST', body: JSON.stringify({ reason }) });
+  }
+
   // WMS: permissions, document actions and selectable data come from the server.
+  async getSupplierReturnCatalog(params: { warehouse_id?:number; q?:string; receipt_id?:number; limit?:number; offset?:number } = {}) { return this.request<SupplierReturnCatalog>(`/warehouse/returns/catalog?${this.warehouseQuery(params)}`); }
+  async getSupplierReturns(params: WarehouseListQuery & { status?: SupplierReturnStatus } = {}) { return this.request<{ items: SupplierReturn[]; count: number }>(`/warehouse/returns?${this.warehouseQuery(params)}`); }
+  async createSupplierReturn(data: SupplierReturnInput) { return this.request<{ id: number; status: string }>('/warehouse/returns', { method: 'POST', body: JSON.stringify(data) }); }
+  async updateSupplierReturn(id: number, data: SupplierReturnInput) { return this.request<{ id: number; status: string }>(`/warehouse/returns/${id}`, { method: 'PATCH', body: JSON.stringify(data) }); }
+  async supplierReturnAction(id: number, action: 'submit' | 'post' | 'cancel', comment = '') { return this.request<{ id: number; status: string }>(`/warehouse/returns/${id}/${action}`, { method: 'POST', body: JSON.stringify({ comment }) }); }
+  async reviewSupplierReturn(id: number, decision: 'approve' | 'return' | 'reject', comment: string) { return this.request<{ id: number; status: string }>(`/warehouse/returns/${id}/review`, { method: 'POST', body: JSON.stringify({ decision, comment }) }); }
+  async uploadSupplierReturnPhoto(id: number, file: File) { const data = new FormData(); data.append('file', file); return this.request<{ id: number }>(`/warehouse/returns/${id}/photos`, { method: 'POST', body: data }); }
+  async deleteSupplierReturnPhoto(id: number, photoId: number) { return this.request<{ id: number }>(`/warehouse/returns/${id}/photos/${photoId}`, { method: 'DELETE' }); }
+  async getSupplierReturnPhoto(id: number, photoId: number, signal?: AbortSignal): Promise<Blob> {
+    const response = await fetch(`${API_BASE_URL}/warehouse/returns/${id}/photos/${photoId}/download`, { headers: { Authorization: `Bearer ${this.getToken() || ''}` }, signal });
+    if (!response.ok) {
+      if (response.status === 401) this.setToken(null);
+      const data = await response.json().catch(() => ({}));
+      throw Object.assign(new Error(data.error || `HTTP ${response.status}`), { status: response.status, code: data.code });
+    }
+    return response.blob();
+  }
+  async getSupplierReturnFinancePhoto(id: number, photoId: number, signal?: AbortSignal): Promise<Blob> {
+    const response = await fetch(`${API_BASE_URL}/finance/supplier-returns/${id}/photos/${photoId}/download`, { headers: { Authorization: `Bearer ${this.getToken() || ''}` }, signal });
+    if (!response.ok) {
+      if (response.status === 401) this.setToken(null);
+      const data = await response.json().catch(() => ({}));
+      throw Object.assign(new Error(data.error || `HTTP ${response.status}`), { status: response.status, code: data.code });
+    }
+    return response.blob();
+  }
+  async getSupplierReturnFinance(params: { limit?: number; offset?: number; return_id?:number } = {}) { return this.request<{ items: SupplierReturnFinance[]; count: number }>(`/finance/supplier-returns?${this.warehouseQuery(params)}`); }
+  async getSupplierReturnCorrections(id: number, params: { limit?: number; offset?: number; payable_limit?: number; payable_offset?: number; q?: string } = {}, signal?: AbortSignal) {
+    return this.request<SupplierReturnCorrectionsResponse>(`/finance/supplier-returns/${id}/corrections?${this.warehouseQuery(params)}`, { signal });
+  }
+  async confirmSupplierReturnCorrection(id: number, data: SupplierReturnCorrectionInput) {
+    return this.request<SupplierReturnCorrection>(`/finance/supplier-returns/${id}/corrections`, { method: 'POST', body: JSON.stringify(data) });
+  }
   async getWriteoffCatalog() { return this.request<WriteoffCatalog>('/warehouse/writeoffs/catalog'); }
   async getWriteoffs(params: WriteoffQuery = {}) { return this.request<{ items: StockWriteoff[]; count: number }>(`/warehouse/writeoffs?${this.warehouseQuery(params)}`); }
   async createWriteoff(data: WriteoffInput) { return this.request<{ id: number; status: string }>('/warehouse/writeoffs', { method: 'POST', body: JSON.stringify(data) }); }
@@ -199,7 +257,7 @@ class ApiClient {
   async createSystemRole(data: { code: string; name: string; description?: string }) { return this.request<SystemRole>('/rbac/roles', { method: 'POST', body: JSON.stringify(data) }); }
   async updateRolePermissions(roleId: number, permission_ids: number[]) { return this.request<SystemRole>(`/rbac/roles/${roleId}/permissions`, { method: 'PUT', body: JSON.stringify({ permission_ids }) }); }
   async assignUserSystemRoles(userId: number, role_ids: number[]) { return this.request<{ user_id: number; role_ids: number[] }>(`/users/${userId}/system-roles`, { method: 'PUT', body: JSON.stringify({ role_ids }) }); }
-  async getApproval(id: number) { return this.request<ApprovalRequest>(`/approvals/${id}`); }
+  async getApproval(id: number, signal?:AbortSignal) { return this.request<ApprovalRequest>(`/approvals/${id}`,{signal}); }
   async getAudit(params: { business_type?: string; business_id?: number } = {}) {
     const query = new URLSearchParams();
     if (params.business_type) query.set('business_type', params.business_type);

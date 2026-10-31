@@ -11,6 +11,7 @@ import {
 } from '@/lib/i18n';
 import { api } from '@/lib/api';
 import { kpiTranslations } from '@/lib/kpi-i18n';
+import { supplierReturnTranslations } from '@/lib/supplier-returns-i18n';
 import { warehouseTranslations } from '@/lib/warehouse-i18n';
 import { 
   Kanban, 
@@ -43,6 +44,7 @@ interface NavbarProps {
   onLogout: () => void;
   notifications: NotificationItem[];
   onRefreshNotifications: () => void;
+  onOpenSupplierReturn: (returnId:number)=>void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -59,6 +61,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onLogout,
   notifications,
   onRefreshNotifications,
+  onOpenSupplierReturn,
 }) => {
   const t = translations[lang] || translations.ru;
   const [showLangMenu, setShowLangMenu] = useState(false);
@@ -354,6 +357,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                           {!notif.is_read && <span className="h-2 w-2 rounded-full bg-blue-600 mt-1 flex-shrink-0" />}
                         </div>
                         <p className="mt-1 text-xs text-slate-900 dark:text-slate-200 font-medium leading-relaxed">{localizeDynamicText(notif.message, lang)}</p>
+                        {notif.entity_type==='supplier_return'&&notif.entity_id&&can('finance.payable.read')&&<button type="button" className="mt-2 min-h-11 rounded-lg border border-slate-400 px-3 py-2 text-sm font-semibold text-slate-950 dark:border-slate-500 dark:text-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600" onClick={()=>{setShowNotifMenu(false);onOpenSupplierReturn(notif.entity_id!);void api.markNotificationsRead(notif.id).then(onRefreshNotifications).catch(()=>{});}}>{supplierReturnTranslations[lang].openFinance}</button>}
                         {notif.created_at && (
                           <div className="mt-1.5 text-[10px] text-slate-700 dark:text-slate-400 font-medium">
                             {new Date(notif.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -427,6 +431,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         <nav aria-label={t.appName} className="lg:hidden fixed inset-x-0 bottom-0 z-50 grid grid-flow-col auto-cols-fr [&>button]:min-w-0 [&>button]:whitespace-normal [&>button]:[overflow-wrap:anywhere] [&>button]:leading-tight [&>button]:py-1 border-t border-slate-300 bg-white/95 px-1 pt-1 shadow-[0_-4px_16px_rgba(15,23,42,.12)] backdrop-blur dark:border-slate-700 dark:bg-slate-900/95" style={{ paddingBottom: 'max(0.25rem, env(safe-area-inset-bottom))' }}>
           {currentUser.role !== 'accountant' && <button type="button" aria-current={activeTab === 'board' ? 'page' : undefined} onClick={() => setActiveTab('board')} className={`min-h-11 rounded-lg text-[10px] font-bold ${activeTab === 'board' ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-200' : 'text-slate-700 dark:text-slate-200'}`}><Layers className="mx-auto mb-0.5 h-4 w-4" />{t.board}</button>}
           <button type="button" aria-current={activeTab === 'finance' ? 'page' : undefined} onClick={() => setActiveTab('finance')} className={`min-h-11 rounded-lg text-[10px] font-bold ${activeTab === 'finance' ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-200' : 'text-slate-700 dark:text-slate-200'}`}><ReceiptText className="mx-auto mb-0.5 h-4 w-4" />{t.finance}</button>
+          {can('approval.read') && <button type="button" aria-current={activeTab === 'approvals' ? 'page' : undefined} onClick={() => setActiveTab('approvals')} className={`min-h-11 rounded-lg text-[10px] font-bold focus-visible:outline-2 focus-visible:outline-blue-600 ${activeTab === 'approvals' ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-200' : 'text-slate-700 dark:text-slate-200'}`}><ClipboardCheck className="mx-auto mb-0.5 h-4 w-4" />{hrLabels[1]}</button>}
           <button type="button" aria-current={activeTab === 'attendance' ? 'page' : undefined} onClick={() => setActiveTab('attendance')} className={`min-h-11 rounded-lg text-[10px] font-bold ${activeTab === 'attendance' ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-200' : 'text-slate-700 dark:text-slate-200'}`}><Clock className="mx-auto mb-0.5 h-4 w-4" />{t.attendance}</button>
             {(currentUser.role === 'general_director' || currentUser.system_permissions?.some(p => p.startsWith('warehouse.'))) && <button type="button" aria-current={activeTab === 'warehouse' ? 'page' : undefined} onClick={() => setActiveTab('warehouse')} className={`min-h-11 rounded-lg px-2 text-[10px] font-bold ${activeTab === 'warehouse' ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-200' : 'text-slate-700 dark:text-slate-200'}`}><Building2 className="mx-auto mb-0.5 h-4 w-4" />{warehouseTranslations[lang].title}</button>}
           {(can('kpi.read') || can('kpi.manage')) && <button type="button" aria-current={activeTab === 'kpi' ? 'page' : undefined} onClick={() => setActiveTab('kpi')} className={`min-h-11 rounded-lg px-2 text-[10px] font-bold ${activeTab === 'kpi' ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-200' : 'text-slate-700 dark:text-slate-200'}`}><BarChart3 className="mx-auto mb-0.5 h-4 w-4" />{kpiTranslations[lang].title}</button>}

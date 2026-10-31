@@ -5,12 +5,14 @@ import { api } from '@/lib/api';
 import { warehouseTranslations } from '@/lib/warehouse-i18n';
 import { transferTranslations } from '@/lib/transfer-i18n';
 import { TransferView } from './TransferView';
+import { SupplierReturnsView } from './SupplierReturnsView';
+import { supplierReturnTranslations } from '@/lib/supplier-returns-i18n';
 import { WriteoffView } from './WriteoffView';
 import { writeoffTranslations } from '@/lib/writeoff-i18n';
 import type { LanguageCode, User, WarehouseCatalog, WarehouseCount, WarehouseExpiry, WarehouseInventory, WarehouseMovement, WarehouseNames, WarehouseReceipt } from '@/types';
 
-type View = 'inventory' | 'movements' | 'receipts' | 'counts' | 'expiry' | 'transfers' | 'writeoffs';
-const views: View[] = ['inventory', 'movements', 'receipts', 'counts', 'expiry', 'transfers', 'writeoffs'];
+type View = 'inventory' | 'movements' | 'receipts' | 'counts' | 'expiry' | 'transfers' | 'writeoffs' | 'returns';
+const views: View[] = ['inventory', 'movements', 'receipts', 'counts', 'expiry', 'transfers', 'writeoffs', 'returns'];
 type Document = { kind: 'receipts'; item: WarehouseReceipt } | { kind: 'counts'; item: WarehouseCount };
 type DraftLine = { key: number; itemId: string; qty: string; locationId: string; batch: string; expiry: string; reason: string };
 const buttonBase = 'min-h-11 rounded-lg px-4 py-2 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:opacity-50';
@@ -31,6 +33,7 @@ export function WarehouseView({ lang, currentUser }: { lang: LanguageCode; curre
   const [catalog, setCatalog] = useState<WarehouseCatalog>(emptyCatalog);
   const [catalogLoading, setCatalogLoading] = useState(true), [loading, setLoading] = useState(false), [saving, setSaving] = useState(false);
   const [warehouseId, setWarehouseId] = useState(''), [view, setView] = useState<View>('inventory');
+  const [returnBusy, setReturnBusy] = useState(false), [returnId, setReturnId] = useState<number | undefined>();
   const [writeoffBusy, setWriteoffBusy] = useState(false), [writeoffId, setWriteoffId] = useState<number | undefined>();
   const [transferBusy, setTransferBusy] = useState(false), [transferId, setTransferId] = useState<number | undefined>();
   const [inventory, setInventory] = useState<WarehouseInventory[]>([]), [movements, setMovements] = useState<WarehouseMovement[]>([]);
@@ -46,7 +49,7 @@ export function WarehouseView({ lang, currentUser }: { lang: LanguageCode; curre
   const request = useRef(0), catalogRequest = useRef(0), mounted = useRef(true);
   const heading = useRef<HTMLHeadingElement>(null), detailsHeading = useRef<HTMLHeadingElement>(null), trigger = useRef<HTMLButtonElement | null>(null);
   const can = useCallback((permission: string) => catalog.permissions.includes(permission), [catalog.permissions]);
-  const canView = useCallback((target: View) => can(target === 'writeoffs' ? 'warehouse.writeoff.read' : target === 'transfers' ? 'warehouse.transfer.read' : target === 'inventory' || target === 'movements' || target === 'expiry' ? 'warehouse.inventory.read' : target === 'receipts' ? 'warehouse.receipt.read' : 'warehouse.count.read'), [can]);
+  const canView = useCallback((target: View) => can(target === 'returns' ? 'warehouse.return.read' : target === 'writeoffs' ? 'warehouse.writeoff.read' : target === 'transfers' ? 'warehouse.transfer.read' : target === 'inventory' || target === 'movements' || target === 'expiry' ? 'warehouse.inventory.read' : target === 'receipts' ? 'warehouse.receipt.read' : 'warehouse.count.read'), [can]);
   const warehouse = catalog.warehouses.find(x => x.id === Number(warehouseId));
   const order = catalog.purchase_orders.find(x => x.id === Number(orderId));
   const name = (x: WarehouseNames) => (lang === 'ky' ? x.name_ky : lang.startsWith('zh') ? x.name_zh : x.name_ru) || x.name_ru || x.name_ky || x.name_zh || t.unknown;
@@ -54,7 +57,7 @@ export function WarehouseView({ lang, currentUser }: { lang: LanguageCode; curre
   const formatDate = (value: string) => new Intl.DateTimeFormat(localeFor(lang), { dateStyle: 'medium' }).format(new Date(value));
   const status = (value: string) => ({ draft: t.draft, posted: t.posted, cancelled: t.cancelled, counted: t.counted, approved: t.approved })[value] || t.unknown;
   const kindLabel = (value: string) => ({ receipt: t.receipt, issue: t.issue, transfer_out: t.transfer_out, transfer_in: t.transfer_in, adjustment: t.adjustment })[value] || t.otherSource;
-  const sourceLabel = (value: string) => ({ purchase_receipt: t.receiptSource, stock_count: t.countSource, stock_transfer: t.transferSource, stock_writeoff: writeoffTranslations[lang].details })[value] || t.otherSource;
+  const sourceLabel = (value: string) => ({ purchase_receipt: t.receiptSource, stock_count: t.countSource, stock_transfer: t.transferSource, supplier_return: supplierReturnTranslations[lang].details, stock_writeoff: writeoffTranslations[lang].details })[value] || t.otherSource;
   const errorText = useCallback((cause: unknown) => {
     const e = cause as { status?: number; code?: string };
     if (e.code === 'batch_adjustment_required') return t.batchRequired;
@@ -78,7 +81,7 @@ export function WarehouseView({ lang, currentUser }: { lang: LanguageCode; curre
   }, [errorText, clearData]);
   const load = useCallback(async () => {
     const id = ++request.current;
-    if (view === 'transfers' || view === 'writeoffs' || !warehouseId || !canView(view)) { clearData(); setLoading(false); return; }
+    if (view === 'transfers' || view === 'writeoffs' || view === 'returns' || !warehouseId || !canView(view)) { clearData(); setLoading(false); return; }
     setLoading(true);
     try {
       const query = { warehouse_id: Number(warehouseId), offset, limit: 20 };
@@ -108,11 +111,12 @@ export function WarehouseView({ lang, currentUser }: { lang: LanguageCode; curre
   useEffect(() => { void load(); }, [load]);
   const documentId = document ? `${document.kind}-${document.item.id}` : '';
   useEffect(() => { if (documentId) detailsHeading.current?.focus(); }, [documentId]);
-  const changeContext = (target: View) => { setTransferId(undefined); setWriteoffId(undefined); setView(target); setOffset(0); clearData(); setForm(null); setError(''); setNotice(''); };
+  const changeContext = (target: View) => { setTransferId(undefined); setWriteoffId(undefined); setReturnId(undefined); setView(target); setOffset(0); clearData(); setForm(null); setError(''); setNotice(''); };
   const showDocument = (kind: 'receipts' | 'counts', item: WarehouseReceipt | WarehouseCount, origin: HTMLButtonElement) => {
     trigger.current = origin; setForm(null); setDocument(kind === 'receipts' ? { kind, item: item as WarehouseReceipt } : { kind, item: item as WarehouseCount });
   };
   const sourceOpen = async (movement: WarehouseMovement, origin: HTMLButtonElement) => {
+    if (movement.source_type === 'supplier_return') { changeContext('returns'); setReturnId(movement.source_id); return; }
     if (movement.source_type === 'stock_writeoff') { changeContext('writeoffs'); setWriteoffId(movement.source_id); return; }
     if (movement.source_type === 'stock_transfer') { changeContext('transfers'); setTransferId(movement.source_id); return; }
     const kind = movement.source_type === 'purchase_receipt' ? 'receipts' : 'counts';
@@ -168,13 +172,13 @@ export function WarehouseView({ lang, currentUser }: { lang: LanguageCode; curre
   const inventoryCost = inventory.some(x => x.avg_cost !== undefined), movementCost = movements.some(x => x.unit_cost !== undefined);
   if (!initialAccess) return <p role="alert" className="p-6">{t.forbidden}</p>;
   return <section className="mx-auto max-w-7xl min-w-0 space-y-5 p-4 pb-24 text-slate-950 dark:text-slate-100 sm:p-6 sm:pb-24">
-    <header className="flex flex-wrap items-start justify-between gap-4"><div className="min-w-0"><h1 ref={heading} tabIndex={-1} className="text-2xl font-bold">{t.title}</h1><p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{t.subtitle}</p></div><button className={button} disabled={saving || transferBusy || writeoffBusy || loading || catalogLoading || view === 'transfers' || view === 'writeoffs'} onClick={() => { setError(''); void loadCatalog(); void load(); }}>{t.refresh}</button></header>
+    <header className="flex flex-wrap items-start justify-between gap-4"><div className="min-w-0"><h1 ref={heading} tabIndex={-1} className="text-2xl font-bold">{t.title}</h1><p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{t.subtitle}</p></div><button className={button} disabled={saving || transferBusy || writeoffBusy || returnBusy || loading || catalogLoading || view === 'transfers' || view === 'writeoffs' || view === 'returns'} onClick={() => { setError(''); void loadCatalog(); void load(); }}>{t.refresh}</button></header>
     {error && <div className="rounded-lg border border-rose-300 bg-rose-50 p-3 text-rose-800 dark:border-rose-700 dark:bg-rose-950 dark:text-rose-200"><p id="warehouse-error" role="alert">{error}</p><button className={`${button} mt-2`} disabled={saving} onClick={() => { setError(''); void loadCatalog(); void load(); }}>{t.retry}</button></div>}
     <p role="status" className="text-sm text-emerald-800 dark:text-emerald-200">{notice}</p>
     {catalogLoading ? <p role="status">{t.loading}</p> : !catalog.warehouses.length ? <p>{t.noWarehouses}</p> : <>
-      <label className="block max-w-lg text-sm font-medium">{t.warehouse}<select className={control} disabled={saving || transferBusy || writeoffBusy} value={warehouseId} onChange={e => { setTransferId(undefined); setWriteoffId(undefined); setWarehouseId(e.target.value); setOffset(0); clearData(); setForm(null); setError(''); setNotice(''); }}>{catalog.warehouses.map(w => <option key={w.id} value={w.id}>{name(w)}</option>)}</select></label>
-      <div className="flex flex-wrap gap-2">{views.filter(canView).map(target => <button key={target} type="button" className={view === target ? primary : button} aria-pressed={view === target} disabled={saving || transferBusy || writeoffBusy} onClick={() => changeContext(target)}>{target === 'transfers' ? transferTranslations[lang].title : target === 'writeoffs' ? writeoffTranslations[lang].title : t[target]}</button>)}</div>
-      {view === 'transfers' ? <TransferView key={warehouseId} lang={lang} warehouseId={Number(warehouseId)} initialTransferId={transferId} onBusyChange={setTransferBusy} /> : view === 'writeoffs' ? <WriteoffView key={warehouseId} lang={lang} warehouseId={Number(warehouseId)} initialWriteoffId={writeoffId} onBusyChange={setWriteoffBusy} /> : <>
+      <label className="block max-w-lg text-sm font-medium">{t.warehouse}<select className={control} disabled={saving || transferBusy || writeoffBusy || returnBusy} value={warehouseId} onChange={e => { setTransferId(undefined); setWriteoffId(undefined); setReturnId(undefined); setWarehouseId(e.target.value); setOffset(0); clearData(); setForm(null); setError(''); setNotice(''); }}>{catalog.warehouses.map(w => <option key={w.id} value={w.id}>{name(w)}</option>)}</select></label>
+      <div className="flex flex-wrap gap-2">{views.filter(canView).map(target => <button key={target} type="button" className={view === target ? primary : button} aria-pressed={view === target} disabled={saving || transferBusy || writeoffBusy || returnBusy} onClick={() => changeContext(target)}>{target === 'returns' ? supplierReturnTranslations[lang].title : target === 'transfers' ? transferTranslations[lang].title : target === 'writeoffs' ? writeoffTranslations[lang].title : t[target]}</button>)}</div>
+      {view === 'returns' ? <SupplierReturnsView key={warehouseId} lang={lang} warehouseId={Number(warehouseId)} initialReturnId={returnId} onBusyChange={setReturnBusy} /> : view === 'transfers' ? <TransferView key={warehouseId} lang={lang} warehouseId={Number(warehouseId)} initialTransferId={transferId} onBusyChange={setTransferBusy} /> : view === 'writeoffs' ? <WriteoffView key={warehouseId} lang={lang} warehouseId={Number(warehouseId)} initialWriteoffId={writeoffId} onBusyChange={setWriteoffBusy} /> : <>
       <div className="flex flex-wrap gap-2">{view === 'receipts' && can('warehouse.receipt.manage') && <button className={primary} disabled={saving} onClick={() => startForm('receipts')}>{t.newReceipt}</button>}{view === 'counts' && can('warehouse.count.manage') && <button className={primary} disabled={saving} onClick={() => startForm('counts')}>{t.newCount}</button>}</div>
       {form && <form onSubmit={submit} className={panel}>
         <h2 className="text-lg font-semibold">{form === 'receipts' ? t.newReceipt : t.newCount}</h2><p className="text-sm text-slate-600 dark:text-slate-300">{t.formHelp}</p>{form === 'counts' && <p className="text-sm text-amber-900 dark:text-amber-200">{t.countHelp}</p>}
@@ -199,7 +203,7 @@ export function WarehouseView({ lang, currentUser }: { lang: LanguageCode; curre
       {view === 'expiry' && <label className="block max-w-xs text-sm">{t.days}<select value={days} disabled={saving} className={control} onChange={e => setDays(e.target.value)}>{[7,14,30,60,90,180,365].map(value => <option key={value} value={value}>{value}</option>)}</select></label>}
       <div aria-busy={loading} className="min-w-0">{loading ? <p role="status">{t.loading}</p> : view !== 'expiry' && rowCount === 0 ? <p>{t.empty}</p> : <>
         {view === 'inventory' && <DataTable caption={t.inventory} headers={[t.sku,t.location,t.qty,t.batches,...(inventoryCost ? [t.cost] : [])]} rows={inventory.map(item => ({key:item.id,cells:[<span key="name">{item.sku_code}<span className="block">{name(item)}</span></span>,item.location_code || t.unlocated,formatNumber(item.qty),item.batches.length ? <ul key="batches" className="space-y-2">{item.batches.map(batch => <li key={batch.batch_no}>{batch.batch_no} · {formatNumber(batch.qty)} · {formatDate(batch.expiry_date)}</li>)}</ul> : '—',...(inventoryCost ? [item.avg_cost === undefined ? '—' : formatNumber(item.avg_cost)] : [])]}))} />}
-        {view === 'movements' && <DataTable caption={t.movements} headers={[t.date,t.sku,t.location,t.type,t.delta,t.reason,t.source,...(movementCost ? [t.cost] : [])]} rows={movements.map(item => ({key:item.id,cells:[formatDate(item.posted_at),`${item.sku_code} · ${name(item)}`,item.location_code || t.unlocated,kindLabel(item.movement_type),`${Number(item.qty_delta) > 0 ? '+' : ''}${formatNumber(item.qty_delta)}`,item.reason || '—',<div key="source"><p>{sourceLabel(item.source_type)} · {item.source_no || `#${item.source_id}`}</p>{((item.source_type === 'purchase_receipt' && canView('receipts')) || (item.source_type === 'stock_count' && canView('counts')) || (item.source_type === 'stock_transfer' && canView('transfers')) || (item.source_type === 'stock_writeoff' && canView('writeoffs'))) && <button className={`${button} mt-2`} disabled={saving} onClick={e => void sourceOpen(item,e.currentTarget)}>{t.open}</button>}</div>,...(movementCost ? [item.unit_cost === undefined ? '—' : formatNumber(item.unit_cost)] : [])]}))} />}
+        {view === 'movements' && <DataTable caption={t.movements} headers={[t.date,t.sku,t.location,t.type,t.delta,t.reason,t.source,...(movementCost ? [t.cost] : [])]} rows={movements.map(item => ({key:item.id,cells:[formatDate(item.posted_at),`${item.sku_code} · ${name(item)}`,item.location_code || t.unlocated,kindLabel(item.movement_type),`${Number(item.qty_delta) > 0 ? '+' : ''}${formatNumber(item.qty_delta)}`,item.reason || '—',<div key="source"><p>{sourceLabel(item.source_type)} · {item.source_no || `#${item.source_id}`}</p>{((item.source_type === 'supplier_return' && canView('returns')) || (item.source_type === 'purchase_receipt' && canView('receipts')) || (item.source_type === 'stock_count' && canView('counts')) || (item.source_type === 'stock_transfer' && canView('transfers')) || (item.source_type === 'stock_writeoff' && canView('writeoffs'))) && <button className={`${button} mt-2`} disabled={saving} onClick={e => void sourceOpen(item,e.currentTarget)}>{t.open}</button>}</div>,...(movementCost ? [item.unit_cost === undefined ? '—' : formatNumber(item.unit_cost)] : [])]}))} />}
         {view === 'receipts' && <DataTable caption={t.receipts} headers={[t.number,t.order,t.status,t.date,t.action]} rows={receipts.map(item => ({key:item.id,cells:[item.receipt_no,item.po_no,status(item.status),formatDate(item.received_at),<button key="open" className={button} disabled={saving} onClick={e => showDocument('receipts',item,e.currentTarget)}>{t.open}</button>]}))} />}
         {view === 'counts' && <DataTable caption={t.counts} headers={[t.number,t.status,t.date,t.action]} rows={counts.map(item => ({key:item.id,cells:[item.count_no,status(item.status),formatDate(item.created_at),<button key="open" className={button} disabled={saving} onClick={e => showDocument('counts',item,e.currentTarget)}>{t.open}</button>]}))} />}
         {view === 'expiry' && expiry && <div className="space-y-5">{expiry.truncated && <p role="status" className="text-amber-900 dark:text-amber-200">{t.truncated}</p>}<h2 className="text-lg font-semibold">{t.batches}</h2>{!expiry.batches.length ? <p>{t.empty}</p> : <DataTable caption={t.batches} headers={[t.sku,t.location,t.batch,t.qty,t.expiryDate,t.status]} rows={expiry.batches.map(item => ({key:item.id,cells:[`${item.sku_code} · ${name(item)}`,item.location_code || t.unlocated,item.batch_no,formatNumber(item.qty),formatDate(item.expiry_date),item.expired ? t.expired : t.soon]}))} />}<h2 className="text-lg font-semibold">{t.certificates}</h2>{!expiry.certificates.length ? <p>{t.empty}</p> : <DataTable caption={t.certificates} headers={[t.sku,t.number,t.expiryDate,t.status]} rows={expiry.certificates.map(item => ({key:item.id,cells:[item.sku_code,item.number,formatDate(item.expires_at),item.expired ? t.expired : t.soon]}))} />}</div>}

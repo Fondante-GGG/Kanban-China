@@ -18,12 +18,17 @@ import { EmployeeDirectoryView } from '@/components/EmployeeDirectoryView';
 import { ApprovalsView } from '@/components/ApprovalsView';
 import { RolesPermissionsView } from '@/components/RolesPermissionsView';
 import { EmployeeProfileView } from '@/components/EmployeeProfileView';
+import { supplierReturnTranslations } from '@/lib/supplier-returns-i18n';
 import { translations, localizeDynamicText } from '@/lib/i18n';
 import { Kanban, Layers, UserCheck } from 'lucide-react';
 
 export default function Home() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState<WorkspaceTab>('board');
+  const [financeReturnId,setFinanceReturnId]=useState<number|undefined>();
+  const [financeNavigation,setFinanceNavigation]=useState(0);
+  const changeTab=(tab:WorkspaceTab)=>{setFinanceReturnId(undefined);if(tab==='finance')setFinanceNavigation(value=>value+1);setActiveTab(tab);};
+  const openSupplierReturn=(returnId:number)=>{if(!currentUser||!(currentUser.role==='general_director'||currentUser.system_permissions?.includes('finance.payable.read')))return;setFinanceReturnId(returnId);setFinanceNavigation(value=>value+1);setActiveTab('finance');setToastNotification(null);};
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<number | null>(null);
   const [boards, setBoards] = useState<BoardSummary[]>([]);
   const [selectedBoardId, setSelectedBoardId] = useState<number | null>(null);
@@ -114,7 +119,7 @@ export default function Home() {
     } catch (err) {
       console.error('Error loading boards or notifications:', err);
     }
-  }, []);
+  }, [setBoards,setNotifications,setSelectedBoardId]);
 
   const checkAuthSession = useCallback(async () => {
     try {
@@ -125,7 +130,8 @@ export default function Home() {
         return;
       }
       const user = await api.getMe();
-      setCurrentUser(user);
+      setFinanceReturnId(undefined);
+    setCurrentUser(user);
       if (user.interface_language && ['ru', 'zh-Hans', 'zh-Hant', 'ky'].includes(user.interface_language)) {
         setLang(user.interface_language as LanguageCode);
       }
@@ -136,7 +142,7 @@ export default function Home() {
     } finally {
       setInitialLoading(false);
     }
-  }, [loadBoardsAndNotifications]);
+  }, [loadBoardsAndNotifications,setFinanceReturnId,setCurrentUser,setLang,setShowLoginModal,setInitialLoading]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -185,6 +191,7 @@ export default function Home() {
   };
 
   const handleLoginSuccess = async (user: User) => {
+    setFinanceReturnId(undefined);
     setCurrentUser(user);
     setShowLoginModal(false);
     if (user.interface_language && ['ru', 'zh-Hans', 'zh-Hant', 'ky'].includes(user.interface_language)) {
@@ -195,6 +202,9 @@ export default function Home() {
 
   const handleLogout = () => {
     api.setToken(null);
+    setFinanceReturnId(undefined);
+    setNotifications([]);
+    setToastNotification(null);
     setCurrentUser(null);
     setBoards([]);
     setSelectedBoardId(null);
@@ -229,7 +239,7 @@ export default function Home() {
       <Navbar
         currentUser={currentUser}
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={changeTab}
         boards={boards}
         selectedBoardId={selectedBoardId}
         onSelectBoard={handleSelectBoard}
@@ -240,6 +250,7 @@ export default function Home() {
         onLogout={handleLogout}
         notifications={notifications}
         onRefreshNotifications={refreshNotifications}
+        onOpenSupplierReturn={openSupplierReturn}
       />
 
       {/* Main page attendance widget (Section 4.9: buttons 'Пришёл' & 'Ушёл' for all employees) */}
@@ -283,7 +294,7 @@ export default function Home() {
           <AttendanceView lang={lang} currentUser={currentUser} />
         )}
 
-        {currentUser && activeTab === 'finance' && <FinanceView currentUser={currentUser} lang={lang} />}
+        {currentUser && activeTab === 'finance' && <FinanceView key={`${currentUser.id}:${financeNavigation}`} currentUser={currentUser} lang={lang} initialReturnId={financeReturnId} />}
         {currentUser && activeTab === 'procurement' && <ProcurementView lang={lang} />}
         {currentUser && activeTab === 'warehouse' && <WarehouseView lang={lang} currentUser={currentUser} />}
         {currentUser && activeTab === 'kpi' && <KpiView lang={lang} currentUser={currentUser} />}
@@ -331,6 +342,7 @@ export default function Home() {
               <p className="mt-1 text-xs text-slate-800 dark:text-slate-200 leading-relaxed font-medium">
                 {localizeDynamicText(toastNotification.message, lang)}
               </p>
+              {toastNotification.entity_type==='supplier_return'&&toastNotification.entity_id&&(currentUser?.role==='general_director'||currentUser?.system_permissions?.includes('finance.payable.read'))&&<button type="button" className="mt-2 min-h-11 rounded-lg border border-slate-400 px-3 py-2 text-sm font-semibold text-slate-950 dark:border-slate-500 dark:text-slate-100 focus-visible:outline-2 focus-visible:outline-blue-600" onClick={()=>{openSupplierReturn(toastNotification.entity_id!);void api.markNotificationsRead(toastNotification.id).then(refreshNotifications).catch(()=>{});}}>{supplierReturnTranslations[lang].openFinance}</button>}
               {toastNotification.created_at && (
                 <div className="mt-1 text-[10px] text-slate-500 font-semibold">
                   {new Date(toastNotification.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

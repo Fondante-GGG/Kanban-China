@@ -181,3 +181,9 @@ Failures return `{error: humanReadableMessage, code: stableCode}`. Codes:
 middleware's 401 behavior. Frontend localizes stable codes, not English messages.
 Unexpected persistence/audit failures are handled by shared middleware; database
 writes roll back first.
+
+
+## Возврат поставщику
+
+Отдельный receipt-bound контракт, права, фото и финансовая очередь описаны в
+[Supplier returns](supplier-returns.md).

@@ -1,0 +1,186 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Finance period closure",
+    "version": "1.0.0"
+  },
+  "components": {
+    "securitySchemes": {
+      "Bearer": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    },
+    "schemas": {
+      "FinancePeriod": {
+        "type": "object",
+        "required": [
+          "year",
+          "month",
+          "is_closed",
+          "closed_by_name",
+          "closed_at",
+          "close_reason"
+        ],
+        "properties": {
+          "year": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9999
+          },
+          "month": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 12
+          },
+          "is_closed": {
+            "type": "boolean"
+          },
+          "closed_by_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "closed_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "close_reason": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "security": [
+    {
+      "Bearer": []
+    }
+  ],
+  "paths": {
+    "/api/finance/periods": {
+      "get": {
+        "summary": "Inspect year; finance.payable.read or finance.period.close",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "year",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{4}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "year",
+                    "items",
+                    "can_close"
+                  ],
+                  "properties": {
+                    "year": {
+                      "type": "integer"
+                    },
+                    "items": {
+                      "type": "array",
+                      "minItems": 12,
+                      "maxItems": 12,
+                      "items": {
+                        "$ref": "#/components/schemas/FinancePeriod"
+                      }
+                    },
+                    "can_close": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid year"
+          },
+          "403": {
+            "description": "Permission denied"
+          }
+        }
+      }
+    },
+    "/api/finance/periods/{year}/{month}/close": {
+      "post": {
+        "summary": "Monotonic close; finance.period.close",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "year",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9999
+            }
+          },
+          {
+            "in": "path",
+            "name": "month",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 12
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "reason"
+                ],
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 4000
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FinancePeriod"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid payload or year/month"
+          },
+          "403": {
+            "description": "Permission denied"
+          },
+          "500": {
+            "description": "Atomic operation failed; no closure is committed"
+          }
+        }
+      }
+    }
+  }
+}
