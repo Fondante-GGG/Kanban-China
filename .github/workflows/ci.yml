@@ -45,14 +45,24 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r backend/requirements.txt
 
+      - name: Configure ephemeral Django environment
+        shell: bash
+        run: |
+          python - <<'PYTHON'
+          import os
+          import secrets
+
+          key = secrets.token_urlsafe(64)
+          print(f"::add-mask::{key}")
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as environment:
+              environment.write(f"DJANGO_SECRET_KEY={key}\nDJANGO_DEBUG=True\n")
+          PYTHON
+
       - name: Django System Checks
         run: |
           python backend/manage.py check
 
       - name: Run Backend Unit Tests
-        env:
-          DJANGO_SECRET_KEY: ci-test-secret-key-32-chars-long-12345
-          DJANGO_DEBUG: "True"
         run: |
           python backend/manage.py test backend.tests
 

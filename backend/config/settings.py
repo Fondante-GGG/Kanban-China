@@ -3,8 +3,12 @@ import secrets
 import sys
 from pathlib import Path
 from django.core.exceptions import ImproperlyConfigured
+from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+# Use one explicit project-local file for manage.py, WSGI and ASGI.
+# Deployment environment variables always take precedence over this optional file.
+load_dotenv(BASE_DIR.parent / ".env", override=False)
 
 def _env_list(name, default=""):
     return [value.strip() for value in os.environ.get(name, default).split(",") if value.strip()]
