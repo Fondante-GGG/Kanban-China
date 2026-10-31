@@ -6,13 +6,14 @@ from backend.infrastructure.di.container import container
 from backend.infrastructure.persistence.models import CardModel, ColumnModel
 from backend.presentation.middlewares import login_required_domain
 from backend.presentation.websockets.broadcaster import broadcast_to_board
+from backend.presentation.api.utils import parse_json_body
 
 
 @csrf_exempt
 @login_required_domain
 def cards_create_view(request):
     if request.method == "POST":
-        data = json.loads(request.body.decode("utf-8"))
+        data = parse_json_body(request)
         dto = CardCreateDTO(
             column_id=data.get("column_id"),
             title=data.get("title", ""),
@@ -49,7 +50,7 @@ def card_detail_view(request, card_id: int):
         return JsonResponse(res, status=200)
 
     elif request.method == "PUT":
-        data = json.loads(request.body.decode("utf-8"))
+        data = parse_json_body(request)
         dto = CardUpdateDTO(
             title=data.get("title"),
             description=data.get("description"),
@@ -96,7 +97,7 @@ def card_detail_view(request, card_id: int):
 @login_required_domain
 def card_move_view(request, card_id: int):
     if request.method == "POST":
-        data = json.loads(request.body.decode("utf-8"))
+        data = parse_json_body(request)
         dto = CardMoveDTO(
             target_column_id=data.get("target_column_id"),
             target_order=data.get("target_order", 0)

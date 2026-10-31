@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Optional, List
+from typing import Optional, List, Dict
 from datetime import datetime
 from backend.domain.entities import (
     User, Department, Board, BoardMember, Column, Card, ChecklistItem, Comment, Attachment, ActivityLog, Notification,
@@ -156,8 +156,15 @@ class ICardRepository(ABC):
     def get_assignees(self, card_id: int) -> List[User]:
         pass
 
+    @abstractmethod
+    def get_assignees_by_card_ids(self, card_ids: List[int]) -> Dict[int, List[User]]:
+        pass
+
 
 class IChecklistRepository(ABC):
+    @abstractmethod
+    def summaries_by_card_ids(self, card_ids: List[int]) -> Dict[int, Dict[str, int]]:
+        pass
     @abstractmethod
     def list_by_card(self, card_id: int) -> List[ChecklistItem]:
         pass
@@ -181,6 +188,13 @@ class IChecklistRepository(ABC):
 
 class ICommentRepository(ABC):
     @abstractmethod
+    def counts_by_card_ids(self, card_ids: List[int]) -> Dict[int, int]:
+        pass
+    @abstractmethod
+    def get_by_id(self, comment_id: int) -> Optional[Comment]:
+        pass
+
+    @abstractmethod
     def list_by_card(self, card_id: int) -> List[Comment]:
         pass
 
@@ -194,6 +208,9 @@ class ICommentRepository(ABC):
 
 
 class IAttachmentRepository(ABC):
+    @abstractmethod
+    def counts_by_card_ids(self, card_ids: List[int]) -> Dict[int, int]:
+        pass
     @abstractmethod
     def list_by_card(self, card_id: int) -> List[Attachment]:
         pass

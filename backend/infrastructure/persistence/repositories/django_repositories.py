@@ -1,7 +1,7 @@
 from typing import Optional, List, Dict
 from datetime import datetime, timedelta
 from django.utils import timezone
-from django.db.models import Q
+from django.db.models import Q, Count
 from backend.application.interfaces.repositories import (
     IUserRepository, IDepartmentRepository, IBoardRepository, IColumnRepository,
     ICardRepository, IChecklistRepository, ICommentRepository, IAttachmentRepository,
@@ -308,8 +308,20 @@ class DjangoCardRepository(ICardRepository):
         qs = UserModel.objects.filter(assigned_card_relations__card_id=card_id)
         return [DataMapper.user_to_domain(m) for m in qs]
 
+    def get_assignees_by_card_ids(self, card_ids: List[int]) -> Dict[int, List[User]]:
+        result = {card_id: [] for card_id in card_ids}
+        relations = CardAssigneeModel.objects.select_related("user").filter(card_id__in=card_ids)
+        for relation in relations:
+            result.setdefault(relation.card_id, []).append(DataMapper.user_to_domain(relation.user))
+        return result
+
 
 class DjangoChecklistRepository(IChecklistRepository):
+    def summaries_by_card_ids(self, card_ids: List[int]) -> Dict[int, Dict[str, int]]:
+        result = {card_id: {"total": 0, "completed": 0} for card_id in card_ids}
+        for row in ChecklistModel.objects.filter(card_id__in=card_ids).values("card_id").annotate(total=Count("id"), completed=Count("id", filter=Q(is_completed=True))):
+            result[row["card_id"]] = {"total": row["total"], "completed": row["completed"]}
+        return result
     def list_by_card(self, card_id: int) -> List[ChecklistItem]:
         qs = ChecklistModel.objects.filter(card_id=card_id).order_by("order", "created_at")
         return [DataMapper.checklist_to_domain(m) for m in qs]
@@ -344,6 +356,18 @@ class DjangoChecklistRepository(IChecklistRepository):
 
 
 class DjangoCommentRepository(ICommentRepository):
+    def counts_by_card_ids(self, card_ids: List[int]) -> Dict[int, int]:
+        result = {card_id: 0 for card_id in card_ids}
+        for row in CommentModel.objects.filter(card_id__in=card_ids).values("card_id").annotate(count=Count("id")):
+            result[row["card_id"]] = row["count"]
+        return result
+    def get_by_id(self, comment_id: int) -> Optional[Comment]:
+        try:
+            model = CommentModel.objects.select_related("user").get(id=comment_id)
+            return DataMapper.comment_to_domain(model)
+        except CommentModel.DoesNotExist:
+            return None
+
     def list_by_card(self, card_id: int) -> List[Comment]:
         qs = CommentModel.objects.select_related("user").filter(card_id=card_id).order_by("created_at")
         return [DataMapper.comment_to_domain(m) for m in qs]
@@ -367,6 +391,11 @@ class DjangoCommentRepository(ICommentRepository):
 
 
 class DjangoAttachmentRepository(IAttachmentRepository):
+    def counts_by_card_ids(self, card_ids: List[int]) -> Dict[int, int]:
+        result = {card_id: 0 for card_id in card_ids}
+        for row in AttachmentModel.objects.filter(card_id__in=card_ids).values("card_id").annotate(count=Count("id")):
+            result[row["card_id"]] = row["count"]
+        return result
     def list_by_card(self, card_id: int) -> List[Attachment]:
         qs = AttachmentModel.objects.select_related("uploaded_by").filter(card_id=card_id).order_by("-created_at")
         return [DataMapper.attachment_to_domain(m) for m in qs]

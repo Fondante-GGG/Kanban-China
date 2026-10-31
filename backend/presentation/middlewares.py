@@ -39,7 +39,9 @@ def login_required_domain(view_func):
         except Exception as e:
             import traceback
             traceback.print_exc()
-            return JsonResponse({"error": str(e)}, status=500)
+            # Log full diagnostics server-side; never expose implementation details
+            # (paths, SQL errors, or library versions) to an API caller.
+            return JsonResponse({"error": "Internal server error"}, status=500)
 
     return wrapper
 

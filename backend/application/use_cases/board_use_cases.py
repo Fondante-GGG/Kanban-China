@@ -100,16 +100,17 @@ class GetBoardDetailsUseCase:
             members = self.uow.boards.get_members(board.id)
             columns = self.uow.columns.list_by_board(board.id)
             cards = self.uow.cards.list_by_board(board.id, search=search, priority=priority, assignee_id=assignee_id)
+            card_ids = [card.id for card in cards]
+            assignees_by_card = self.uow.cards.get_assignees_by_card_ids(card_ids)
+            checklist_summaries = self.uow.checklists.summaries_by_card_ids(card_ids)
+            comments_counts = self.uow.comments.counts_by_card_ids(card_ids)
+            attachments_counts = self.uow.attachments.counts_by_card_ids(card_ids)
 
             # Group cards by column_id
             cards_by_column: Dict[int, List[Dict[str, Any]]] = {c.id: [] for c in columns}
             for card in cards:
-                assignees = self.uow.cards.get_assignees(card.id)
-                checklists = self.uow.checklists.list_by_card(card.id)
-                completed_checklists = sum(1 for item in checklists if item.is_completed)
-                total_checklists = len(checklists)
-                comments = self.uow.comments.list_by_card(card.id)
-                attachments = self.uow.attachments.list_by_card(card.id)
+                assignees = assignees_by_card.get(card.id, [])
+                checklist_summary = checklist_summaries.get(card.id, {"total": 0, "completed": 0})
 
                 card_data = {
                     "id": card.id,
@@ -135,11 +136,11 @@ class GetBoardDetailsUseCase:
                         } for a in assignees
                     ],
                     "checklists_summary": {
-                        "total": total_checklists,
-                        "completed": completed_checklists,
+                        "total": checklist_summary["total"],
+                        "completed": checklist_summary["completed"],
                     },
-                    "comments_count": len(comments),
-                    "attachments_count": len(attachments),
+                    "comments_count": comments_counts.get(card.id, 0),
+                    "attachments_count": attachments_counts.get(card.id, 0),
                 }
                 if card.column_id in cards_by_column:
                     cards_by_column[card.column_id].append(card_data)

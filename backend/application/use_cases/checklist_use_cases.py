@@ -19,8 +19,7 @@ class AddChecklistItemUseCase:
 
             column = self.uow.columns.get_by_id(card.column_id)
             assigned_board_id = self.uow.users.get_assigned_board_id(current_user.id)
-            # Allowed for director, manager, or board members
-            AccessPolicyService.ensure_can_move_card(current_user, column.board_id, assigned_board_id)
+            AccessPolicyService.ensure_can_manage_cards(current_user, column.board_id, assigned_board_id)
 
             if not dto.title.strip():
                 raise ValidationException("Checklist item title cannot be empty.")
@@ -68,7 +67,7 @@ class ToggleChecklistItemUseCase:
             card = self.uow.cards.get_by_id(item.card_id)
             column = self.uow.columns.get_by_id(card.column_id)
             assigned_board_id = self.uow.users.get_assigned_board_id(current_user.id)
-            AccessPolicyService.ensure_can_move_card(current_user, column.board_id, assigned_board_id)
+            AccessPolicyService.ensure_can_manage_cards(current_user, column.board_id, assigned_board_id)
 
             item.is_completed = not item.is_completed
             updated = self.uow.checklists.update(item)

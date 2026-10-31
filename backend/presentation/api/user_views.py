@@ -6,6 +6,7 @@ from backend.application.dtos import UserCreateDTO, UserUpdateDTO
 from backend.domain.entities import Department
 from backend.infrastructure.di.container import container
 from backend.presentation.middlewares import login_required_domain
+from backend.presentation.api.utils import parse_json_body
 
 
 @csrf_exempt
@@ -13,13 +14,16 @@ from backend.presentation.middlewares import login_required_domain
 def users_list_create_view(request):
     if request.method == "GET":
         dept_id = request.GET.get("department_id")
-        dept_id = int(dept_id) if dept_id else None
+        try:
+            dept_id = int(dept_id) if dept_id else None
+        except ValueError:
+            return JsonResponse({"error": "department_id must be an integer"}, status=400)
         use_case = container.get_list_users_use_case()
         users = use_case.execute(request.user_entity, dept_id)
         return JsonResponse({"users": users}, status=200)
 
     elif request.method == "POST":
-        data = json.loads(request.body.decode("utf-8"))
+        data = parse_json_body(request)
         dto = UserCreateDTO(
             email=data.get("email", ""),
             password=data.get("password", ""),
@@ -41,7 +45,7 @@ def users_list_create_view(request):
 @login_required_domain
 def user_detail_view(request, user_id: int):
     if request.method == "PUT":
-        data = json.loads(request.body.decode("utf-8"))
+        data = parse_json_body(request)
         dto = UserUpdateDTO(
             full_name=data.get("full_name"),
             role=data.get("role"),
@@ -79,7 +83,7 @@ def departments_view(request):
         elif request.method == "POST":
             if not request.user_entity.is_general_director:
                 return JsonResponse({"error": "Admin privileges required"}, status=403)
-            data = json.loads(request.body.decode("utf-8"))
+            data = parse_json_body(request)
             name = data.get("name", "").strip()
             if not name:
                 return JsonResponse({"error": "Department name is required"}, status=400)
@@ -132,7 +136,7 @@ def department_detail_view(request, dept_id: int):
         if not dept:
             return JsonResponse({"error": "Department not found"}, status=404)
         if request.method == "PUT":
-            data = json.loads(request.body.decode("utf-8"))
+            data = parse_json_body(request)
             name = data.get("name", "").strip()
             if not name:
                 return JsonResponse({"error": "Department name cannot be empty"}, status=400)

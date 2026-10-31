@@ -1,0 +1,27 @@
+'use client';
+
+import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { api } from '@/lib/api';
+import { LanguageCode } from '@/types';
+
+type Item = { id: number; status: string; name_ru: string; name_ky?: string; name_zh?: string; sku_code?: string };
+type Copy = { title:string; suppliers:string; goods:string; supplier:string; good:string; ru:string; ky:string; zh:string; sku:string; submit:string; empty:string; pending:string; fallback:string };
+const text: Record<LanguageCode, Copy> = {
+  ru: {title:'Закупки и каталог',suppliers:'Поставщики',goods:'Товары / SKU',supplier:'Добавить поставщика',good:'Добавить товар',ru:'Название (русский)',ky:'Название (кыргызский)',zh:'名称（中文）',sku:'Код SKU',submit:'Отправить на согласование',empty:'Записей пока нет',pending:'На согласовании',fallback:'Не удалось выполнить операцию'},
+  ky: {title:'Сатып алуу жана каталог',suppliers:'Жеткирүүчүлөр',goods:'Товарлар / SKU',supplier:'Жеткирүүчү кошуу',good:'Товар кошуу',ru:'Аталышы (орусча)',ky:'Аталышы (кыргызча)',zh:'名称（中文）',sku:'SKU коду',submit:'Макулдашууга жөнөтүү',empty:'Азырынча жазуулар жок',pending:'Макулдашууда',fallback:'Операцияны аткаруу мүмкүн болгон жок'},
+  'zh-Hans': {title:'采购与目录',suppliers:'供应商',goods:'商品 / SKU',supplier:'新增供应商',good:'新增商品',ru:'名称（俄语）',ky:'名称（吉尔吉斯语）',zh:'名称（中文）',sku:'SKU 编码',submit:'提交审批',empty:'暂无记录',pending:'审批中',fallback:'操作未能完成'},
+  'zh-Hant': {title:'採購與目錄',suppliers:'供應商',goods:'商品 / SKU',supplier:'新增供應商',good:'新增商品',ru:'名稱（俄語）',ky:'名稱（吉爾吉斯語）',zh:'名稱（中文）',sku:'SKU 編碼',submit:'提交審批',empty:'暫無記錄',pending:'審批中',fallback:'操作未能完成'},
+};
+const nameFor = (item: Item, lang: LanguageCode) => lang === 'ky' ? item.name_ky || item.name_ru : lang.startsWith('zh') ? item.name_zh || item.name_ru : item.name_ru;
+
+export function ProcurementView({lang}:{lang:LanguageCode}) {
+  const t=text[lang]; const [suppliers,setSuppliers]=useState<Item[]>([]),[skus,setSkus]=useState<Item[]>([]),[error,setError]=useState(''),[saving,setSaving]=useState(false);
+  const [supplier,setSupplier]=useState({name_ru:'',name_ky:'',name_zh:''}); const [sku,setSku]=useState({sku_code:'',name_ru:'',name_ky:'',name_zh:''});
+  const load=useCallback(async()=>{try { const [s,k]=await Promise.all([api.getSuppliers(),api.getSkus()]);setSuppliers(s.items);setSkus(k.items);setError(''); } catch (e) {setError(e instanceof Error?e.message:t.fallback)}},[t.fallback]);
+  useEffect(()=>{void load()},[load]);
+  const create=async(kind:'supplier'|'sku',event:FormEvent)=>{event.preventDefault();setSaving(true);try {if(kind==='supplier'){await api.createSupplier(supplier);setSupplier({name_ru:'',name_ky:'',name_zh:''})}else{await api.createSku(sku);setSku({sku_code:'',name_ru:'',name_ky:'',name_zh:''})}await load()}catch(e){setError(e instanceof Error?e.message:t.fallback)}finally{setSaving(false)}};
+  const send=async(kind:'supplier'|'sku',id:number)=>{setSaving(true);try{if(kind==='supplier')await api.submitSupplier(id);else await api.submitSku(id);await load()}catch(e){setError(e instanceof Error?e.message:t.fallback)}finally{setSaving(false)}};
+  const input=(label:string,value:string,change:(v:string)=>void,required=false)=><label className="grid gap-1 text-sm"><span>{label}</span><input required={required} value={value} onChange={e=>change(e.target.value)} className="rounded border border-slate-300 bg-white px-2 py-1.5 text-black dark:border-slate-600 dark:bg-slate-900 dark:text-white"/></label>;
+  const list=(kind:'supplier'|'sku',items:Item[]) => <ul className="mt-3 space-y-2" aria-live="polite">{items.length?items.map(item=><li key={item.id} className="flex items-center justify-between gap-2 rounded border border-slate-200 p-2 dark:border-slate-700"><span>{item.sku_code&&`${item.sku_code} — `}{nameFor(item,lang)} <span className="text-xs text-slate-500">{item.status==='pending_approval'?t.pending:item.status}</span></span>{item.status==='draft'&&<button type="button" disabled={saving} onClick={()=>void send(kind,item.id)} className="rounded bg-slate-800 px-2 py-1 text-xs text-white disabled:opacity-50">{t.submit}</button>}</li>):<li className="text-sm text-slate-500">{t.empty}</li>}</ul>;
+  return <section className="mx-auto w-full max-w-7xl p-4 text-black dark:text-white sm:p-6"><h1 className="text-xl font-bold">{t.title}</h1>{error&&<p role="alert" className="mt-3 text-red-700 dark:text-red-300">{error}</p>}<div className="mt-5 grid gap-5 lg:grid-cols-2"><div className="panel"><h2 className="font-semibold">{t.suppliers}</h2><form onSubmit={e=>void create('supplier',e)} className="mt-3 grid gap-2">{input(t.ru,supplier.name_ru,v=>setSupplier({...supplier,name_ru:v}),true)}{input(t.ky,supplier.name_ky,v=>setSupplier({...supplier,name_ky:v}))}{input(t.zh,supplier.name_zh,v=>setSupplier({...supplier,name_zh:v}))}<button disabled={saving} className="rounded bg-blue-700 px-3 py-2 text-white disabled:opacity-50">{t.supplier}</button></form>{list('supplier',suppliers)}</div><div className="panel"><h2 className="font-semibold">{t.goods}</h2><form onSubmit={e=>void create('sku',e)} className="mt-3 grid gap-2">{input(t.sku,sku.sku_code,v=>setSku({...sku,sku_code:v}),true)}{input(t.ru,sku.name_ru,v=>setSku({...sku,name_ru:v}),true)}{input(t.ky,sku.name_ky,v=>setSku({...sku,name_ky:v}))}{input(t.zh,sku.name_zh,v=>setSku({...sku,name_zh:v}))}<button disabled={saving} className="rounded bg-blue-700 px-3 py-2 text-white disabled:opacity-50">{t.good}</button></form>{list('sku',skus)}</div></div></section>;
+}

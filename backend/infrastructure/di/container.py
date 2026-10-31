@@ -5,7 +5,7 @@ from backend.infrastructure.services.report_service import ReportService
 from backend.infrastructure.services.attendance_report_service import AttendanceReportService
 
 from backend.application.use_cases.auth_use_cases import (
-    LoginUseCase, GetProfileUseCase, ResetPasswordUseCase
+    LoginUseCase, GetProfileUseCase, ResetPasswordUseCase, UpdateInterfaceLanguageUseCase
 )
 from backend.application.use_cases.user_use_cases import (
     ListUsersUseCase, CreateUserUseCase, UpdateUserUseCase, DeleteUserUseCase
@@ -65,6 +65,9 @@ class Container:
 
     def get_reset_password_use_case(self) -> ResetPasswordUseCase:
         return ResetPasswordUseCase(self.get_uow())
+
+    def get_update_interface_language_use_case(self) -> UpdateInterfaceLanguageUseCase:
+        return UpdateInterfaceLanguageUseCase(self.get_uow())
 
     # User Use Cases
     def get_list_users_use_case(self) -> ListUsersUseCase:

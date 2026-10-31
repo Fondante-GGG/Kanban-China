@@ -92,9 +92,15 @@ class DeleteCommentUseCase:
 
     def execute(self, current_user: User, comment_id: int) -> bool:
         with self.uow:
-            # Check comment ownership or managerial privileges
-            comments = self.uow.comments.list_by_card(0)  # We can look up or delete
-            # In django_repositories we implement direct deletion or permission check
+            comment = self.uow.comments.get_by_id(comment_id)
+            if not comment:
+                raise EntityNotFoundException("Comment", comment_id)
+            card = self.uow.cards.get_by_id(comment.card_id)
+            column = self.uow.columns.get_by_id(card.column_id)
+            assigned_board_id = self.uow.users.get_assigned_board_id(current_user.id)
+            AccessPolicyService.ensure_can_view_board(current_user, column.board_id, assigned_board_id)
+            if comment.user_id != current_user.id:
+                AccessPolicyService.ensure_can_manage_cards(current_user, column.board_id, assigned_board_id)
             deleted = self.uow.comments.delete(comment_id)
             self.uow.commit()
             return deleted

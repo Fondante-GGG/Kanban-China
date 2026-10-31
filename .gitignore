@@ -57,6 +57,8 @@ db.sqlite3
 /media/
 /staticfiles/
 backend/media/
+/private_media/
+backend/private_media/
 backend/staticfiles/
 
 # Python Testing & Coverage
@@ -107,3 +109,5 @@ frontend/.turbo
 .gemini/
 brain/
 *.log
+
+Единое_расширенное_ТЗ_OA_ERP_Канбан_RU_v2.md

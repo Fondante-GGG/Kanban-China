@@ -34,7 +34,29 @@ def login_view(request):
 def me_view(request):
     use_case = container.get_profile_use_case()
     profile = use_case.execute(request.user_entity.id)
+    from backend.infrastructure.persistence.models import SystemPermissionModel
+    if request.user_entity.is_general_director:
+        from backend.presentation.api.platform_views import ALL_PERMISSIONS
+        profile["system_permissions"] = ALL_PERMISSIONS
+    else:
+        profile["system_permissions"] = list(SystemPermissionModel.objects.filter(roles__user_links__user_id=request.user_entity.id, roles__is_active=True).values_list("code", flat=True).distinct())
     return JsonResponse(profile, status=200)
+
+
+@csrf_exempt
+@require_http_methods(["PUT", "PATCH"])
+@login_required_domain
+def profile_language_view(request):
+    try:
+        data = json.loads(request.body.decode("utf-8") or "{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON body"}, status=400)
+    try:
+        use_case = container.get_update_interface_language_use_case()
+        profile = use_case.execute(request.user_entity.id, data.get("interface_language"))
+        return JsonResponse(profile, status=200)
+    except ValidationException as exc:
+        return JsonResponse({"error": exc.message}, status=400)
 
 
 @csrf_exempt

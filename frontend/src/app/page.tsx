@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
-import { User, BoardSummary, LanguageCode, NotificationItem } from '@/types';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { User, BoardSummary, LanguageCode, NotificationItem, WorkspaceTab } from '@/types';
 import { api } from '@/lib/api';
 import { Navbar } from '@/components/Navbar';
 import { BoardView } from '@/components/BoardView';
@@ -9,14 +9,22 @@ import { ReportsView } from '@/components/ReportsView';
 import { AdminView } from '@/components/AdminView';
 import { AttendanceView } from '@/components/AttendanceView';
 import { AttendanceWidget } from '@/components/AttendanceWidget';
+import { KpiView } from '@/components/KpiView';
+import { WarehouseView } from '@/components/WarehouseView';
 import { FinanceView } from '@/components/FinanceView';
+import { ProcurementView } from '@/components/ProcurementView';
 import { LoginModal } from '@/components/LoginModal';
+import { EmployeeDirectoryView } from '@/components/EmployeeDirectoryView';
+import { ApprovalsView } from '@/components/ApprovalsView';
+import { RolesPermissionsView } from '@/components/RolesPermissionsView';
+import { EmployeeProfileView } from '@/components/EmployeeProfileView';
 import { translations, localizeDynamicText } from '@/lib/i18n';
 import { Kanban, Layers, UserCheck } from 'lucide-react';
 
 export default function Home() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [activeTab, setActiveTab] = useState<'board' | 'reports' | 'admin' | 'attendance' | 'finance'>('board');
+  const [activeTab, setActiveTab] = useState<WorkspaceTab>('board');
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<number | null>(null);
   const [boards, setBoards] = useState<BoardSummary[]>([]);
   const [selectedBoardId, setSelectedBoardId] = useState<number | null>(null);
   const [lang, setLang] = useState<LanguageCode>('ru');
@@ -27,77 +35,52 @@ export default function Home() {
   const [showLoginModal, setShowLoginModal] = useState<boolean>(false);
   const [initialLoading, setInitialLoading] = useState<boolean>(true);
 
-  // Periodic notifications polling (every 6 seconds) for real-time alerts
+  // Poll only while the app is visible. This prevents background-tab traffic and
+  // avoids overlapping requests on a slow connection.
   useEffect(() => {
     if (!currentUser) return;
+    let inFlight = false;
 
-    const interval = setInterval(async () => {
+    const pollNotifications = async () => {
+      if (document.visibilityState !== 'visible' || inFlight) return;
+      inFlight = true;
       try {
         const res = await api.getNotifications();
         const incoming: NotificationItem[] = res.notifications || [];
 
-        // Detect new unread notification for toast alert
         if (knownNotifIdsRef.current.size > 0) {
           const newest = incoming.find((n) => !n.is_read && !knownNotifIdsRef.current.has(n.id));
           if (newest) {
             setToastNotification(newest);
-            // Auto dismiss toast after 7 seconds
-            setTimeout(() => {
+            window.setTimeout(() => {
               setToastNotification((prev) => (prev?.id === newest.id ? null : prev));
             }, 7000);
           }
         }
 
-        // Update known IDs
         incoming.forEach((n) => knownNotifIdsRef.current.add(n.id));
         setNotifications(incoming);
-      } catch (err) {
-        // Silent poll error
+      } catch {
+        // Polling is best-effort; the notification menu can refresh manually.
+      } finally {
+        inFlight = false;
       }
-    }, 6000);
+    };
 
-    return () => clearInterval(interval);
+    void pollNotifications();
+    const interval = window.setInterval(() => void pollNotifications(), 30000);
+    const onVisibilityChange = () => { if (document.visibilityState === 'visible') void pollNotifications(); };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
   }, [currentUser]);
 
   // Initialize theme & language preferences
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const savedTheme = localStorage.getItem('kanban_theme');
-      const isDark = savedTheme === 'dark';
-      setDarkMode(isDark);
-      document.documentElement.classList.toggle('dark', isDark);
 
-      const savedLang = localStorage.getItem('kanban_lang') as LanguageCode;
-      if (savedLang && ['ru', 'zh-Hans', 'zh-Hant', 'ky'].includes(savedLang)) {
-        setLang(savedLang);
-      }
-    }
-    checkAuthSession();
-  }, []);
-
-  const checkAuthSession = async () => {
-    try {
-      const token = api.getToken();
-      if (!token) {
-        setShowLoginModal(true);
-        setInitialLoading(false);
-        return;
-      }
-      const user = await api.getMe();
-      setCurrentUser(user);
-      if (user.interface_language && ['ru', 'zh-Hans', 'zh-Hant', 'ky'].includes(user.interface_language)) {
-        setLang(user.interface_language as LanguageCode);
-      }
-      await loadBoardsAndNotifications(user);
-    } catch (err) {
-      console.warn('Auth check failed, prompting login:', err);
-      setShowLoginModal(true);
-    } finally {
-      setInitialLoading(false);
-    }
-  };
-
-  const loadBoardsAndNotifications = async (user: User, forceSelectBoardId?: number) => {
+  const loadBoardsAndNotifications = useCallback(async (user: User, forceSelectBoardId?: number) => {
     try {
       const [boardsRes, notifsRes] = await Promise.all([
         api.getBoards(),
@@ -131,7 +114,44 @@ export default function Home() {
     } catch (err) {
       console.error('Error loading boards or notifications:', err);
     }
-  };
+  }, []);
+
+  const checkAuthSession = useCallback(async () => {
+    try {
+      const token = api.getToken();
+      if (!token) {
+        setShowLoginModal(true);
+        setInitialLoading(false);
+        return;
+      }
+      const user = await api.getMe();
+      setCurrentUser(user);
+      if (user.interface_language && ['ru', 'zh-Hans', 'zh-Hant', 'ky'].includes(user.interface_language)) {
+        setLang(user.interface_language as LanguageCode);
+      }
+      await loadBoardsAndNotifications(user);
+    } catch (err) {
+      console.warn('Auth check failed, prompting login:', err);
+      setShowLoginModal(true);
+    } finally {
+      setInitialLoading(false);
+    }
+  }, [loadBoardsAndNotifications]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedTheme = localStorage.getItem('kanban_theme');
+      const isDark = savedTheme === 'dark';
+      setDarkMode(isDark);
+      document.documentElement.classList.toggle('dark', isDark);
+
+      const savedLang = localStorage.getItem('kanban_lang') as LanguageCode;
+      if (savedLang && ['ru', 'zh-Hans', 'zh-Hant', 'ky'].includes(savedLang)) {
+        setLang(savedLang);
+      }
+    }
+    checkAuthSession();
+  }, [checkAuthSession]);
 
   const handleSelectBoard = (boardId: number) => {
     setSelectedBoardId(boardId);
@@ -149,10 +169,18 @@ export default function Home() {
     }
   };
 
-  const handleSelectLang = (newLang: LanguageCode) => {
+  const handleSelectLang = async (newLang: LanguageCode) => {
     setLang(newLang);
     if (typeof window !== 'undefined') {
       localStorage.setItem('kanban_lang', newLang);
+    }
+    if (currentUser) {
+      try {
+        const profile = await api.updateInterfaceLanguage(newLang);
+        setCurrentUser(profile);
+      } catch (error) {
+        console.warn('Unable to persist interface language:', error);
+      }
     }
   };
 
@@ -160,7 +188,7 @@ export default function Home() {
     setCurrentUser(user);
     setShowLoginModal(false);
     if (user.interface_language && ['ru', 'zh-Hans', 'zh-Hant', 'ky'].includes(user.interface_language)) {
-      handleSelectLang(user.interface_language as LanguageCode);
+      await handleSelectLang(user.interface_language as LanguageCode);
     }
     await loadBoardsAndNotifications(user);
   };
@@ -223,7 +251,7 @@ export default function Home() {
         />
       )}
 
-      <main className="flex-1 flex flex-col">
+      <main className="flex-1 flex flex-col pb-16 lg:pb-0">
         {currentUser && selectedBoardId && activeTab === 'board' && (
           <BoardView
             boardId={selectedBoardId}
@@ -256,6 +284,13 @@ export default function Home() {
         )}
 
         {currentUser && activeTab === 'finance' && <FinanceView currentUser={currentUser} lang={lang} />}
+        {currentUser && activeTab === 'procurement' && <ProcurementView lang={lang} />}
+        {currentUser && activeTab === 'warehouse' && <WarehouseView lang={lang} currentUser={currentUser} />}
+        {currentUser && activeTab === 'kpi' && <KpiView lang={lang} currentUser={currentUser} />}
+
+        {currentUser && activeTab === 'hr' && (selectedEmployeeId ? <EmployeeProfileView id={selectedEmployeeId} lang={lang} /> : <EmployeeDirectoryView lang={lang} allowed={currentUser.system_permissions?.includes('hr.employee.read') || currentUser.role === 'general_director'} onOpen={setSelectedEmployeeId} />)}
+        {currentUser && activeTab === 'approvals' && <ApprovalsView lang={lang} allowed={currentUser.system_permissions?.includes('approval.read') || currentUser.system_permissions?.includes('approval.act') || currentUser.role === 'general_director'} />}
+        {currentUser && activeTab === 'rbac' && <RolesPermissionsView lang={lang} allowed={currentUser.system_permissions?.includes('rbac.manage') || currentUser.role === 'general_director'} />}
 
         {currentUser && activeTab === 'admin' && (
           <AdminView

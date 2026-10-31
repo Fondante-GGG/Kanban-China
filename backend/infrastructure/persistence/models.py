@@ -1,6 +1,25 @@
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.utils import timezone
+from backend.infrastructure.persistence.storage import PrivateMediaStorage
+
+
+class AppendOnlyQuerySet(models.QuerySet):
+    """Prevent accidental mutation through bulk ORM APIs.
+
+    Business audit records are write-once.  Django's normal model ``save``
+    hooks do not run for ``QuerySet.update``/``delete``, so those paths must
+    be blocked explicitly as well.
+    """
+    def update(self, **kwargs):
+        raise RuntimeError("Append-only records cannot be updated")
+
+    def delete(self):
+        raise RuntimeError("Append-only records cannot be deleted")
+
+
+class AppendOnlyManager(models.Manager.from_queryset(AppendOnlyQuerySet)):
+    pass
 
 
 class CustomUserManager(BaseUserManager):
@@ -560,7 +579,7 @@ class ExpenseAttachmentModel(models.Model):
     DOCUMENT_TYPES = [("kkm_receipt", "ККМ-чек"), ("bank_receipt", "Банковский чек"), ("invoice", "Счёт"), ("waybill", "Накладная"), ("other", "Другой")]
     expense = models.ForeignKey(ExpenseModel, on_delete=models.CASCADE, related_name="attachments")
     document_type = models.CharField(max_length=20, choices=DOCUMENT_TYPES, default="other")
-    file = models.FileField(upload_to="expense_documents/%Y/%m/")
+    file = models.FileField(upload_to="expense_documents/%Y/%m/", storage=PrivateMediaStorage())
     original_name = models.CharField(max_length=255)
     file_size = models.BigIntegerField()
     uploaded_by = models.ForeignKey(UserModel, on_delete=models.PROTECT, related_name="uploaded_expense_documents")
@@ -577,7 +596,7 @@ class ReimbursementPaymentModel(models.Model):
     paid_at = models.DateTimeField(default=timezone.now)
     payment_method = models.CharField(max_length=50, default="bank_transfer")
     transaction_number = models.CharField(max_length=255, blank=True, default="")
-    proof = models.FileField(upload_to="reimbursement_proofs/%Y/%m/", null=True, blank=True)
+    proof = models.FileField(upload_to="reimbursement_proofs/%Y/%m/", storage=PrivateMediaStorage(), null=True, blank=True)
     created_by = models.ForeignKey(UserModel, on_delete=models.PROTECT, related_name="recorded_reimbursement_payments")
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -599,3 +618,544 @@ class ExpenseActivityLogModel(models.Model):
         db_table = "expense_activity_logs"
         ordering = ["-created_at"]
 
+
+# Platform RBAC deliberately stays independent from UserModel.role, which is the
+# legacy Kanban role and remains the authority for board access.
+class SystemPermissionModel(models.Model):
+    code = models.CharField(max_length=100, unique=True)
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True, default="")
+
+    class Meta:
+        db_table = "system_permissions"
+        ordering = ["code"]
+
+
+class SystemRoleModel(models.Model):
+    code = models.CharField(max_length=100, unique=True)
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True, default="")
+    is_active = models.BooleanField(default=True)
+    permissions = models.ManyToManyField(SystemPermissionModel, through="SystemRolePermissionModel", related_name="roles")
+
+    class Meta:
+        db_table = "system_roles"
+        ordering = ["code"]
+
+
+class SystemRolePermissionModel(models.Model):
+    role = models.ForeignKey(SystemRoleModel, on_delete=models.CASCADE, related_name="permission_links")
+    permission = models.ForeignKey(SystemPermissionModel, on_delete=models.CASCADE)
+
+    class Meta:
+        db_table = "system_role_permissions"
+        constraints = [models.UniqueConstraint(fields=["role", "permission"], name="unique_system_role_permission")]
+
+
+class UserSystemRoleModel(models.Model):
+    user = models.ForeignKey(UserModel, on_delete=models.CASCADE, related_name="system_role_links")
+    role = models.ForeignKey(SystemRoleModel, on_delete=models.CASCADE, related_name="user_links")
+
+    class Meta:
+        db_table = "user_system_roles"
+        constraints = [models.UniqueConstraint(fields=["user", "role"], name="unique_user_system_role")]
+
+
+class EmployeeModel(models.Model):
+    STATUS_CHOICES = [("draft", "Draft"), ("pending_approval", "Pending approval"), ("active", "Active"), ("terminated", "Terminated")]
+    employee_no = models.CharField(max_length=64, unique=True)
+    email = models.EmailField(unique=True)
+    full_name_ru = models.CharField(max_length=255)
+    full_name_zh = models.CharField(max_length=255, blank=True, default="")
+    full_name_ky = models.CharField(max_length=255, blank=True, default="")
+    department = models.ForeignKey(DepartmentModel, on_delete=models.PROTECT, related_name="employees")
+    position = models.CharField(max_length=255, blank=True, default="")
+    phone = models.CharField(max_length=50, blank=True, default="")
+    status = models.CharField(max_length=32, choices=STATUS_CHOICES, default="draft")
+    user = models.OneToOneField(UserModel, null=True, blank=True, on_delete=models.SET_NULL, related_name="employee_profile")
+    kanban_role = models.CharField(max_length=32, choices=[("manager", "Manager"), ("employee", "Employee")], default="employee")
+    board = models.ForeignKey(BoardModel, null=True, blank=True, on_delete=models.SET_NULL, related_name="employee_profiles")
+    hired_at = models.DateField(null=True, blank=True)
+    terminated_at = models.DateField(null=True, blank=True)
+    is_deleted = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "employees"
+        ordering = ["employee_no"]
+
+
+class MonthlyTimesheetModel(models.Model):
+    """Locked, reproducible monthly attendance snapshot used by payroll."""
+    employee = models.ForeignKey(EmployeeModel, on_delete=models.PROTECT, related_name="monthly_timesheets")
+    year = models.PositiveSmallIntegerField(); month = models.PositiveSmallIntegerField()
+    snapshot = models.JSONField(default=dict); status = models.CharField(max_length=20, choices=[("confirmed", "Confirmed")], default="confirmed")
+    confirmed_by = models.ForeignKey(UserModel, on_delete=models.PROTECT, related_name="confirmed_timesheets")
+    confirmed_at = models.DateTimeField(auto_now_add=True)
+    class Meta:
+        db_table = "monthly_timesheets"
+        constraints = [models.UniqueConstraint(fields=["employee", "year", "month"], name="unique_employee_timesheet_period")]
+
+
+class ApprovalRequestModel(models.Model):
+    STATUS_CHOICES = [("pending", "Pending"), ("approved", "Approved"), ("rejected", "Rejected"), ("returned", "Returned"), ("withdrawn", "Withdrawn")]
+    business_type = models.CharField(max_length=64)
+    business_id = models.PositiveBigIntegerField()
+    applicant = models.ForeignKey(UserModel, on_delete=models.PROTECT, related_name="submitted_approvals")
+    assigned_to = models.ForeignKey(UserModel, null=True, blank=True, on_delete=models.PROTECT, related_name="assigned_approvals")
+    flow = models.ForeignKey("ApprovalFlowModel", null=True, blank=True, on_delete=models.PROTECT, related_name="requests")
+    status = models.CharField(max_length=32, choices=STATUS_CHOICES, default="pending")
+    snapshot = models.JSONField(default=dict)
+    current_node = models.PositiveSmallIntegerField(default=1)
+    decided_by = models.ForeignKey(UserModel, null=True, blank=True, on_delete=models.PROTECT, related_name="decided_approvals")
+    decided_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "approval_requests"
+        indexes = [models.Index(fields=["business_type", "business_id"]), models.Index(fields=["status", "created_at"])]
+
+
+class ApprovalActionModel(models.Model):
+    approval = models.ForeignKey(ApprovalRequestModel, on_delete=models.PROTECT, related_name="actions")
+    actor = models.ForeignKey(UserModel, on_delete=models.PROTECT)
+    action = models.CharField(max_length=32)
+    comment = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "approval_actions"
+        ordering = ["created_at"]
+
+    objects = AppendOnlyManager()
+
+    def save(self, *args, **kwargs):
+        if self.pk:
+            raise RuntimeError("Approval actions are append-only")
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise RuntimeError("Approval actions are append-only")
+
+
+class DocumentVersionModel(models.Model):
+    document_type = models.CharField(max_length=64)
+    document_id = models.PositiveBigIntegerField()
+    version_no = models.PositiveIntegerField()
+    payload = models.JSONField(default=dict)
+    changed_by = models.ForeignKey(UserModel, null=True, on_delete=models.PROTECT)
+    reason = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "document_versions"
+        constraints = [models.UniqueConstraint(fields=["document_type", "document_id", "version_no"], name="unique_document_version")]
+        ordering = ["document_type", "document_id", "version_no"]
+
+    objects = AppendOnlyManager()
+
+    def save(self, *args, **kwargs):
+        if self.pk: raise RuntimeError("Document versions are append-only")
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise RuntimeError("Document versions are append-only")
+
+
+class OperationLogModel(models.Model):
+    actor = models.ForeignKey(UserModel, null=True, on_delete=models.PROTECT)
+    action = models.CharField(max_length=100)
+    business_type = models.CharField(max_length=64)
+    business_id = models.PositiveBigIntegerField()
+    old_data = models.JSONField(default=dict)
+    new_data = models.JSONField(default=dict)
+    ip_address = models.CharField(max_length=64, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "operation_logs"
+        ordering = ["-created_at"]
+
+    objects = AppendOnlyManager()
+
+    def save(self, *args, **kwargs):
+        if self.pk: raise RuntimeError("Operation logs are append-only")
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise RuntimeError("Operation logs are append-only")
+
+
+class OnboardingInvitationModel(models.Model):
+    """Only a hash is persisted; a browser never receives the raw token."""
+    user = models.ForeignKey(UserModel, on_delete=models.CASCADE, related_name="onboarding_invitations")
+    token_hash = models.CharField(max_length=128, unique=True)
+    expires_at = models.DateTimeField()
+    used_at = models.DateTimeField(null=True, blank=True)
+    sent_at = models.DateTimeField(null=True, blank=True)
+    created_by = models.ForeignKey(UserModel, on_delete=models.PROTECT, related_name="created_onboarding_invitations")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "onboarding_invitations"
+        ordering = ["-created_at"]
+
+
+class ApprovalFlowModel(models.Model):
+    business_type = models.CharField(max_length=64, unique=True)
+    name = models.CharField(max_length=255)
+    is_active = models.BooleanField(default=True)
+    class Meta: db_table = "approval_flows"
+
+
+class ApprovalNodeModel(models.Model):
+    flow = models.ForeignKey(ApprovalFlowModel, on_delete=models.CASCADE, related_name="nodes")
+    order = models.PositiveSmallIntegerField()
+    approver_type = models.CharField(max_length=32, choices=[("user", "User"), ("role", "Role"), ("department_leader", "Department leader")])
+    user = models.ForeignKey(UserModel, null=True, blank=True, on_delete=models.PROTECT)
+    role = models.ForeignKey(SystemRoleModel, null=True, blank=True, on_delete=models.PROTECT)
+    class Meta:
+        db_table = "approval_nodes"
+        constraints = [models.UniqueConstraint(fields=["flow", "order"], name="unique_approval_node_order")]
+
+
+class EmailOutboxModel(models.Model):
+    """Delivery state only.  Invitation secrets are never persisted here."""
+    to_email = models.EmailField(); subject = models.CharField(max_length=255); body = models.TextField()
+    invitation = models.OneToOneField(OnboardingInvitationModel, null=True, blank=True, on_delete=models.SET_NULL, related_name="outbox")
+    status = models.CharField(max_length=20, default="pending")
+    attempts = models.PositiveSmallIntegerField(default=0); last_error = models.TextField(blank=True, default="")
+    sent_at = models.DateTimeField(null=True, blank=True); created_at = models.DateTimeField(auto_now_add=True)
+    class Meta: db_table = "email_outbox"
+
+
+# Phase 2 — procurement master data.  Financial liabilities are deliberately
+# not created here: they arise only after the WMS receiving/reconciliation flow.
+class SupplierModel(models.Model):
+    STATUS = [("draft", "Draft"), ("pending_approval", "Pending approval"), ("active", "Active"), ("blocked", "Blocked")]
+    name_ru = models.CharField(max_length=255)
+    name_zh = models.CharField(max_length=255, blank=True, default="")
+    name_ky = models.CharField(max_length=255, blank=True, default="")
+    country = models.CharField(max_length=80, blank=True, default="")
+    contact = models.CharField(max_length=255, blank=True, default="")
+    phone = models.CharField(max_length=64, blank=True, default="")
+    tax_no = models.CharField(max_length=128, blank=True, default="")
+    currency = models.CharField(max_length=3, default="KGS")
+    status = models.CharField(max_length=32, choices=STATUS, default="draft")
+    created_by = models.ForeignKey(UserModel, on_delete=models.PROTECT, related_name="created_suppliers")
+    created_at = models.DateTimeField(auto_now_add=True); updated_at = models.DateTimeField(auto_now=True)
+    class Meta: db_table = "suppliers"; ordering = ["name_ru"]
+
+
+class GoodsCategoryModel(models.Model):
+    parent = models.ForeignKey("self", null=True, blank=True, on_delete=models.PROTECT, related_name="children")
+    name_ru = models.CharField(max_length=255); name_zh = models.CharField(max_length=255, blank=True, default=""); name_ky = models.CharField(max_length=255, blank=True, default="")
+    sort = models.PositiveIntegerField(default=0)
+    class Meta: db_table = "goods_categories"; ordering = ["sort", "name_ru"]
+
+
+class GoodsSKUModel(models.Model):
+    STATUS = [("draft", "Draft"), ("pending_approval", "Pending approval"), ("active", "Active"), ("discontinued", "Discontinued")]
+    sku_code = models.CharField(max_length=64, unique=True); barcode = models.CharField(max_length=128, blank=True, default="", db_index=True)
+    name_ru = models.CharField(max_length=255); name_zh = models.CharField(max_length=255, blank=True, default=""); name_ky = models.CharField(max_length=255, blank=True, default="")
+    category = models.ForeignKey(GoodsCategoryModel, null=True, blank=True, on_delete=models.PROTECT)
+    brand = models.CharField(max_length=128, blank=True, default=""); origin = models.CharField(max_length=128, blank=True, default="")
+    shelf_life_days = models.PositiveIntegerField(null=True, blank=True); status = models.CharField(max_length=32, choices=STATUS, default="draft")
+    created_by = models.ForeignKey(UserModel, on_delete=models.PROTECT, related_name="created_skus"); created_at = models.DateTimeField(auto_now_add=True); updated_at = models.DateTimeField(auto_now=True)
+    class Meta: db_table = "goods_skus"; ordering = ["sku_code"]
+
+
+class SupplierQuoteModel(models.Model):
+    supplier = models.ForeignKey(SupplierModel, on_delete=models.PROTECT, related_name="quotes"); sku = models.ForeignKey(GoodsSKUModel, on_delete=models.PROTECT, related_name="supplier_quotes")
+    price = models.DecimalField(max_digits=14, decimal_places=2); currency = models.CharField(max_length=3, default="KGS"); moq = models.PositiveIntegerField(default=1); delivery_days = models.PositiveIntegerField(default=0)
+    valid_from = models.DateField(null=True, blank=True); valid_until = models.DateField(null=True, blank=True); created_at = models.DateTimeField(auto_now_add=True)
+    class Meta: db_table = "supplier_quotes"; constraints = [models.UniqueConstraint(fields=["supplier", "sku", "currency"], name="unique_supplier_sku_currency_quote")]
+
+
+class PurchaseOrderModel(models.Model):
+    """Approved supplier order; stock/financial posting is deferred to WMS."""
+    STATUS = [("draft", "Draft"), ("pending_approval", "Pending approval"), ("approved", "Approved"), ("partially_received", "Partially received"), ("received", "Received"), ("closed", "Closed"), ("cancelled", "Cancelled")]
+    po_no = models.CharField(max_length=64, unique=True)
+    supplier = models.ForeignKey(SupplierModel, on_delete=models.PROTECT, related_name="purchase_orders")
+    department = models.ForeignKey(DepartmentModel, null=True, blank=True, on_delete=models.PROTECT)
+    order_date = models.DateField(); expected_delivery_date = models.DateField(null=True, blank=True)
+    currency = models.CharField(max_length=3, default="KGS"); status = models.CharField(max_length=32, choices=STATUS, default="draft")
+    created_by = models.ForeignKey(UserModel, on_delete=models.PROTECT, related_name="created_purchase_orders")
+    created_at = models.DateTimeField(auto_now_add=True); updated_at = models.DateTimeField(auto_now=True)
+    class Meta: db_table = "purchase_orders"; ordering = ["-created_at"]
+
+
+class PurchaseOrderItemModel(models.Model):
+    purchase_order = models.ForeignKey(PurchaseOrderModel, on_delete=models.CASCADE, related_name="items")
+    sku = models.ForeignKey(GoodsSKUModel, on_delete=models.PROTECT)
+    ordered_qty = models.PositiveIntegerField(); received_qty = models.PositiveIntegerField(default=0)
+    unit_price = models.DecimalField(max_digits=14, decimal_places=2)
+    class Meta:
+        db_table = "purchase_order_items"
+        constraints = [models.UniqueConstraint(fields=["purchase_order", "sku"], name="unique_po_sku")]
+
+
+class WarehouseModel(models.Model):
+    name_ru = models.CharField(max_length=255); name_zh = models.CharField(max_length=255, blank=True, default=""); name_ky = models.CharField(max_length=255, blank=True, default="")
+    address = models.CharField(max_length=500, blank=True, default=""); manager = models.ForeignKey(UserModel, null=True, blank=True, on_delete=models.PROTECT)
+    class Meta: db_table = "warehouses"
+
+
+class WarehouseLocationModel(models.Model):
+    warehouse = models.ForeignKey(WarehouseModel, on_delete=models.CASCADE, related_name="locations"); code = models.CharField(max_length=64)
+    class Meta: db_table = "warehouse_locations"; constraints = [models.UniqueConstraint(fields=["warehouse", "code"], name="unique_warehouse_location")]
+
+
+class StockInventoryModel(models.Model):
+    warehouse = models.ForeignKey(WarehouseModel, on_delete=models.PROTECT); location = models.ForeignKey(WarehouseLocationModel, null=True, blank=True, on_delete=models.PROTECT); sku = models.ForeignKey(GoodsSKUModel, on_delete=models.PROTECT)
+    qty = models.DecimalField(max_digits=14, decimal_places=3, default=0); avg_cost = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    class Meta: db_table = "stock_inventory"; constraints = [models.UniqueConstraint(fields=["warehouse", "location", "sku"], name="unique_stock_balance")]
+
+
+class StockMovementModel(models.Model):
+    """Append-only stock ledger; balances change only through posted movements."""
+    TYPES = [("receipt", "Receipt"), ("issue", "Issue"), ("transfer_out", "Transfer out"), ("transfer_in", "Transfer in"), ("adjustment", "Adjustment")]
+    warehouse = models.ForeignKey(WarehouseModel, on_delete=models.PROTECT); location = models.ForeignKey(WarehouseLocationModel, null=True, blank=True, on_delete=models.PROTECT)
+    sku = models.ForeignKey(GoodsSKUModel, on_delete=models.PROTECT); qty_delta = models.DecimalField(max_digits=14, decimal_places=3); unit_cost = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    movement_type = models.CharField(max_length=32, choices=TYPES); source_type = models.CharField(max_length=64); source_id = models.PositiveBigIntegerField(); reason = models.TextField(blank=True, default="")
+    posted_by = models.ForeignKey(UserModel, on_delete=models.PROTECT); posted_at = models.DateTimeField(auto_now_add=True)
+    class Meta: db_table = "stock_movements"; ordering = ["-posted_at"]
+
+
+class PurchaseReceiptModel(models.Model):
+    STATUS = [("draft", "Draft"), ("posted", "Posted"), ("cancelled", "Cancelled")]
+    receipt_no = models.CharField(max_length=64, unique=True); purchase_order = models.ForeignKey(PurchaseOrderModel, on_delete=models.PROTECT, related_name="receipts")
+    warehouse = models.ForeignKey(WarehouseModel, on_delete=models.PROTECT); status = models.CharField(max_length=20, choices=STATUS, default="draft")
+    received_by = models.ForeignKey(UserModel, on_delete=models.PROTECT); received_at = models.DateTimeField(auto_now_add=True); comment = models.TextField(blank=True, default="")
+    class Meta: db_table = "purchase_receipts"
+
+
+class PurchaseReceiptItemModel(models.Model):
+    receipt = models.ForeignKey(PurchaseReceiptModel, on_delete=models.CASCADE, related_name="items"); po_item = models.ForeignKey(PurchaseOrderItemModel, on_delete=models.PROTECT)
+    location = models.ForeignKey(WarehouseLocationModel, null=True, blank=True, on_delete=models.PROTECT); qty = models.PositiveIntegerField(); unit_cost = models.DecimalField(max_digits=14, decimal_places=2)
+    batch_no = models.CharField(max_length=128, blank=True, default=""); expiry_date = models.DateField(null=True, blank=True)
+    discrepancy_reason = models.TextField(blank=True, default="")
+    class Meta: db_table = "purchase_receipt_items"
+
+
+class StockTransferModel(models.Model):
+    STATUS = [("draft", "Draft"), ("pending_approval", "Pending approval"), ("approved", "Approved"), ("in_transit", "In transit"), ("received", "Received"), ("rejected", "Rejected"), ("cancelled", "Cancelled")]
+    transfer_no = models.CharField(max_length=64, unique=True)
+    source_warehouse = models.ForeignKey(WarehouseModel, on_delete=models.PROTECT, related_name="outgoing_transfers")
+    destination_warehouse = models.ForeignKey(WarehouseModel, on_delete=models.PROTECT, related_name="incoming_transfers")
+    status = models.CharField(max_length=20, choices=STATUS, default="draft")
+    created_by = models.ForeignKey(UserModel, on_delete=models.PROTECT)
+    created_at = models.DateTimeField(auto_now_add=True)
+    comment = models.TextField(blank=True, default="")
+    review_comment = models.TextField(blank=True, default="")
+    approved_by = models.ForeignKey(UserModel, null=True, blank=True, on_delete=models.PROTECT, related_name="approved_stock_transfers")
+    approved_at = models.DateTimeField(null=True, blank=True)
+    dispatched_by = models.ForeignKey(UserModel, null=True, blank=True, on_delete=models.PROTECT, related_name="dispatched_stock_transfers")
+    dispatched_at = models.DateTimeField(null=True, blank=True)
+    received_by = models.ForeignKey(UserModel, null=True, blank=True, on_delete=models.PROTECT, related_name="received_stock_transfers")
+    received_at = models.DateTimeField(null=True, blank=True)
+    class Meta: db_table = "stock_transfers"
+
+
+class StockTransferItemModel(models.Model):
+    transfer = models.ForeignKey(StockTransferModel, on_delete=models.CASCADE, related_name="items")
+    sku = models.ForeignKey(GoodsSKUModel, on_delete=models.PROTECT)
+    qty = models.PositiveIntegerField()
+    source_location = models.ForeignKey(WarehouseLocationModel, null=True, blank=True, on_delete=models.PROTECT, related_name="outgoing_transfer_items")
+    destination_location = models.ForeignKey(WarehouseLocationModel, null=True, blank=True, on_delete=models.PROTECT, related_name="incoming_transfer_items")
+    batch_no = models.CharField(max_length=128, blank=True, default="")
+    expiry_date = models.DateField(null=True, blank=True)
+    unit_cost = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    class Meta: db_table = "stock_transfer_items"; constraints = [models.UniqueConstraint(fields=["transfer", "sku"], name="unique_transfer_sku")]
+
+
+class StockBatchModel(models.Model):
+    inventory = models.ForeignKey(StockInventoryModel, on_delete=models.CASCADE, related_name="batches"); batch_no = models.CharField(max_length=128); expiry_date = models.DateField(); qty = models.DecimalField(max_digits=14, decimal_places=3)
+    class Meta: db_table = "stock_batches"; constraints = [models.UniqueConstraint(fields=["inventory", "batch_no"], name="unique_inventory_batch")]
+
+
+class StockCountModel(models.Model):
+    STATUS = [("draft", "Draft"), ("counted", "Counted"), ("approved", "Approved")]
+    count_no = models.CharField(max_length=64, unique=True); warehouse = models.ForeignKey(WarehouseModel, on_delete=models.PROTECT); status = models.CharField(max_length=16, choices=STATUS, default="draft"); created_by = models.ForeignKey(UserModel, on_delete=models.PROTECT); created_at = models.DateTimeField(auto_now_add=True)
+    class Meta: db_table = "stock_counts"
+
+
+class StockCountItemModel(models.Model):
+    count = models.ForeignKey(StockCountModel, on_delete=models.CASCADE, related_name="items"); sku = models.ForeignKey(GoodsSKUModel, on_delete=models.PROTECT); system_qty = models.DecimalField(max_digits=14, decimal_places=3); actual_qty = models.DecimalField(max_digits=14, decimal_places=3); reason = models.TextField(blank=True, default="")
+    class Meta: db_table = "stock_count_items"; constraints = [models.UniqueConstraint(fields=["count", "sku"], name="unique_count_sku")]
+
+
+class FinanceAccountModel(models.Model):
+    name = models.CharField(max_length=255); bank_name = models.CharField(max_length=255, blank=True, default=""); currency = models.CharField(max_length=3); balance = models.DecimalField(max_digits=16, decimal_places=2, default=0); is_active = models.BooleanField(default=True)
+    class Meta: db_table = "finance_accounts"; constraints = [models.UniqueConstraint(fields=["name", "currency"], name="unique_finance_account_currency")]
+
+
+class FinancePayableModel(models.Model):
+    STATUS = [("open", "Open"), ("partially_paid", "Partially paid"), ("paid", "Paid"), ("cancelled", "Cancelled")]
+    supplier = models.ForeignKey(SupplierModel, on_delete=models.PROTECT); purchase_order = models.ForeignKey(PurchaseOrderModel, null=True, blank=True, on_delete=models.PROTECT)
+    source_type = models.CharField(max_length=64); source_id = models.PositiveBigIntegerField(); amount = models.DecimalField(max_digits=16, decimal_places=2); outstanding_amount = models.DecimalField(max_digits=16, decimal_places=2); currency = models.CharField(max_length=3); due_date = models.DateField(null=True, blank=True); status = models.CharField(max_length=20, choices=STATUS, default="open"); created_at = models.DateTimeField(auto_now_add=True)
+    class Meta: db_table = "finance_payables"; constraints = [models.UniqueConstraint(fields=["source_type", "source_id"], name="unique_payable_source")]
+
+
+class FinancePaymentModel(models.Model):
+    payable = models.ForeignKey(FinancePayableModel, on_delete=models.PROTECT, related_name="payments"); account = models.ForeignKey(FinanceAccountModel, on_delete=models.PROTECT); amount = models.DecimalField(max_digits=16, decimal_places=2); payment_date = models.DateField(); transaction_no = models.CharField(max_length=128); proof_file = models.CharField(max_length=500, blank=True, default=""); created_by = models.ForeignKey(UserModel, on_delete=models.PROTECT); created_at = models.DateTimeField(auto_now_add=True)
+    class Meta: db_table = "finance_payments"; constraints = [models.UniqueConstraint(fields=["account", "transaction_no"], name="unique_payment_transaction")]
+
+
+class FinanceFxRateModel(models.Model):
+    base_currency = models.CharField(max_length=3); quote_currency = models.CharField(max_length=3); rate = models.DecimalField(max_digits=18, decimal_places=8); valid_at = models.DateField(); changed_by = models.ForeignKey(UserModel, on_delete=models.PROTECT); created_at = models.DateTimeField(auto_now_add=True)
+    class Meta: db_table = "finance_fx_rates"; constraints = [models.UniqueConstraint(fields=["base_currency", "quote_currency", "valid_at"], name="unique_fx_rate_day")]
+
+
+class FinancePeriodModel(models.Model):
+    year = models.PositiveSmallIntegerField(); month = models.PositiveSmallIntegerField(); is_closed = models.BooleanField(default=False); closed_by = models.ForeignKey(UserModel, null=True, blank=True, on_delete=models.PROTECT); closed_at = models.DateTimeField(null=True, blank=True)
+    class Meta: db_table = "finance_periods"; constraints = [models.UniqueConstraint(fields=["year", "month"], name="unique_finance_period")]
+
+
+class SupplierStatementModel(models.Model):
+    STATUS = [("draft", "Draft"), ("confirmed", "Confirmed"), ("cancelled", "Cancelled")]
+    statement_no = models.CharField(max_length=64, unique=True); supplier = models.ForeignKey(SupplierModel, on_delete=models.PROTECT); purchase_order = models.ForeignKey(PurchaseOrderModel, on_delete=models.PROTECT)
+    period_start = models.DateField(); period_end = models.DateField(); total_amount = models.DecimalField(max_digits=16, decimal_places=2); currency = models.CharField(max_length=3); status = models.CharField(max_length=20, choices=STATUS, default="draft"); confirmed_by = models.ForeignKey(UserModel, null=True, blank=True, on_delete=models.PROTECT); confirmed_at = models.DateTimeField(null=True, blank=True); created_by = models.ForeignKey(UserModel, on_delete=models.PROTECT, related_name="created_supplier_statements"); created_at = models.DateTimeField(auto_now_add=True)
+    class Meta: db_table = "supplier_statements"; constraints = [models.UniqueConstraint(fields=["purchase_order", "period_start", "period_end"], name="unique_statement_period")]
+
+
+class GoodsCertificateModel(models.Model):
+    sku = models.ForeignKey(GoodsSKUModel, on_delete=models.CASCADE, related_name="certificates"); number = models.CharField(max_length=128); file_path = models.CharField(max_length=500); expires_at = models.DateField(); created_by = models.ForeignKey(UserModel, on_delete=models.PROTECT); created_at = models.DateTimeField(auto_now_add=True)
+    class Meta: db_table = "goods_certificates"; constraints = [models.UniqueConstraint(fields=["sku", "number"], name="unique_sku_certificate")]
+class GoodsPriceHistoryModel(models.Model):
+    sku = models.ForeignKey(GoodsSKUModel, on_delete=models.PROTECT, related_name="price_history"); price_type = models.CharField(max_length=32); currency = models.CharField(max_length=3); old_price = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True); new_price = models.DecimalField(max_digits=14, decimal_places=2); effective_at = models.DateTimeField(); changed_by = models.ForeignKey(UserModel, on_delete=models.PROTECT); approval_id = models.PositiveBigIntegerField(null=True, blank=True)
+    class Meta: db_table = "goods_price_history"; ordering = ["-effective_at"]
+
+
+class KpiTemplateModel(models.Model):
+    name = models.CharField(max_length=255); position_code = models.CharField(max_length=128); cycle = models.CharField(max_length=16, choices=[("month", "Month"), ("quarter", "Quarter"), ("year", "Year")]); is_active = models.BooleanField(default=True)
+    class Meta: db_table = "kpi_templates"
+
+
+class KpiTemplateItemModel(models.Model):
+    template = models.ForeignKey(KpiTemplateModel, on_delete=models.CASCADE, related_name="items"); name_ru = models.CharField(max_length=255); name_zh = models.CharField(max_length=255, blank=True, default=""); name_ky = models.CharField(max_length=255, blank=True, default=""); weight = models.DecimalField(max_digits=5, decimal_places=2); formula = models.TextField(blank=True, default="")
+    class Meta: db_table = "kpi_template_items"
+
+
+class KpiTaskModel(models.Model):
+    STATUS = [("self_review", "Self review"), ("manager_review", "Manager review"), ("senior_review", "Senior review"), ("confirmed", "Confirmed")]
+    template = models.ForeignKey(KpiTemplateModel, on_delete=models.PROTECT); employee = models.ForeignKey(EmployeeModel, on_delete=models.PROTECT); year = models.PositiveSmallIntegerField(); period = models.CharField(max_length=16); self_score = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True); manager_score = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True); final_score = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True); status = models.CharField(max_length=20, choices=STATUS, default="self_review")
+    acknowledged_at = models.DateTimeField(null=True, blank=True)
+    manager_scored_by = models.ForeignKey(UserModel, null=True, blank=True, on_delete=models.PROTECT, related_name="managed_kpi_tasks")
+    reviewed_by = models.ForeignKey(UserModel, null=True, blank=True, on_delete=models.PROTECT, related_name="reviewed_kpi_tasks")
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    archived_at = models.DateTimeField(null=True, blank=True)
+    comments = models.JSONField(default=dict, blank=True)
+    class Meta: db_table = "kpi_tasks"; constraints = [models.UniqueConstraint(fields=["template", "employee", "year", "period"], name="unique_kpi_task_period")]
+
+
+class AdminAssetModel(models.Model):
+    STATUS = [("in_use", "In use"), ("repair", "Repair"), ("written_off", "Written off")]
+    asset_no = models.CharField(max_length=64, unique=True); name = models.CharField(max_length=255); category = models.CharField(max_length=128); purchase_date = models.DateField(null=True, blank=True); price = models.DecimalField(max_digits=14, decimal_places=2, default=0); owner = models.ForeignKey(EmployeeModel, null=True, blank=True, on_delete=models.PROTECT); status = models.CharField(max_length=20, choices=STATUS, default="in_use")
+    class Meta: db_table = "admin_assets"
+
+class AdminAssetLogModel(models.Model):
+    asset=models.ForeignKey(AdminAssetModel,on_delete=models.PROTECT,related_name="logs");employee=models.ForeignKey(EmployeeModel,on_delete=models.PROTECT);operation=models.CharField(max_length=16,choices=[("issued","Issued"),("returned","Returned")]);performed_by=models.ForeignKey(UserModel,on_delete=models.PROTECT);created_at=models.DateTimeField(auto_now_add=True);comment=models.TextField(blank=True,default="")
+    class Meta:db_table="admin_asset_logs";ordering=["-created_at"]
+
+class EmployeeFileModel(models.Model):
+    employee=models.ForeignKey(EmployeeModel,on_delete=models.CASCADE,related_name="files");file_name=models.CharField(max_length=255);file_path=models.CharField(max_length=500);file_type=models.CharField(max_length=64);expires_at=models.DateField(null=True,blank=True);version_no=models.PositiveIntegerField(default=1);uploaded_by=models.ForeignKey(UserModel,on_delete=models.PROTECT);created_at=models.DateTimeField(auto_now_add=True)
+    class Meta:db_table="employee_files";constraints=[models.UniqueConstraint(fields=["employee","file_name","version_no"],name="unique_employee_file_version")]
+
+class EmployeeChangeModel(models.Model):
+    employee=models.ForeignKey(EmployeeModel,on_delete=models.PROTECT,related_name="changes");change_type=models.CharField(max_length=64);before_data=models.JSONField(default=dict);after_data=models.JSONField(default=dict);approval_id=models.PositiveBigIntegerField(null=True,blank=True);created_by=models.ForeignKey(UserModel,on_delete=models.PROTECT);created_at=models.DateTimeField(auto_now_add=True)
+    class Meta:db_table="employee_changes";ordering=["-created_at"]
+
+
+class AdminNoticeModel(models.Model):
+    title_ru = models.CharField(max_length=255); title_zh = models.CharField(max_length=255, blank=True, default=""); title_ky = models.CharField(max_length=255, blank=True, default=""); content_ru = models.TextField(); content_zh = models.TextField(blank=True, default=""); content_ky = models.TextField(blank=True, default=""); published_by = models.ForeignKey(UserModel, on_delete=models.PROTECT); published_at = models.DateTimeField(auto_now_add=True); is_top = models.BooleanField(default=False)
+    class Meta: db_table = "admin_notices"
+
+
+class FinanceSalaryModel(models.Model):
+    STATUS = [("draft", "Draft"), ("approved", "Approved"), ("paid", "Paid")]
+    employee = models.ForeignKey(EmployeeModel, on_delete=models.PROTECT); year = models.PositiveSmallIntegerField(); month = models.PositiveSmallIntegerField()
+    base_salary = models.DecimalField(max_digits=16, decimal_places=2); attendance_deduction = models.DecimalField(max_digits=16, decimal_places=2, default=0); kpi_bonus = models.DecimalField(max_digits=16, decimal_places=2, default=0); other_adjustment = models.DecimalField(max_digits=16, decimal_places=2, default=0); total_pay = models.DecimalField(max_digits=16, decimal_places=2); currency = models.CharField(max_length=3, default="KGS"); status = models.CharField(max_length=20, choices=STATUS, default="draft"); created_by = models.ForeignKey(UserModel, on_delete=models.PROTECT); created_at = models.DateTimeField(auto_now_add=True)
+    class Meta: db_table = "finance_salaries"; constraints = [models.UniqueConstraint(fields=["employee", "year", "month"], name="unique_salary_period")]
+
+
+class AdminSupplyModel(models.Model):
+    name = models.CharField(max_length=255); unit = models.CharField(max_length=32); stock_qty = models.DecimalField(max_digits=14, decimal_places=3, default=0)
+    class Meta: db_table = "admin_supplies"
+class AdminSupplyRequestModel(models.Model):
+    STATUS=[("draft","Draft"),("pending","Pending"),("approved","Approved"),("rejected","Rejected")]
+    supply=models.ForeignKey(AdminSupplyModel,on_delete=models.PROTECT); requester=models.ForeignKey(UserModel,on_delete=models.PROTECT); qty=models.DecimalField(max_digits=14,decimal_places=3);status=models.CharField(max_length=20,choices=STATUS,default="draft");comment=models.TextField(blank=True,default="");created_at=models.DateTimeField(auto_now_add=True)
+    class Meta:db_table="admin_supply_requests"
+class AdminCarModel(models.Model):
+    plate_no=models.CharField(max_length=32,unique=True);model=models.CharField(max_length=128);is_active=models.BooleanField(default=True)
+    class Meta:db_table="admin_cars"
+class AdminCarRequestModel(models.Model):
+    STATUS=[("draft","Draft"),("pending","Pending"),("approved","Approved"),("rejected","Rejected")]
+    car=models.ForeignKey(AdminCarModel,on_delete=models.PROTECT);requester=models.ForeignKey(UserModel,on_delete=models.PROTECT);start_at=models.DateTimeField();end_at=models.DateTimeField();destination=models.CharField(max_length=255);mileage=models.DecimalField(max_digits=12,decimal_places=1,default=0);status=models.CharField(max_length=20,choices=STATUS,default="draft")
+    class Meta:db_table="admin_car_requests"
+class AdminMeetingRoomModel(models.Model):
+    name=models.CharField(max_length=128,unique=True);capacity=models.PositiveIntegerField(default=1);is_active=models.BooleanField(default=True)
+    class Meta:db_table="admin_meeting_rooms"
+class AdminMeetingBookingModel(models.Model):
+    STATUS=[("booked","Booked"),("cancelled","Cancelled")]
+    room=models.ForeignKey(AdminMeetingRoomModel,on_delete=models.PROTECT);requester=models.ForeignKey(UserModel,on_delete=models.PROTECT);start_at=models.DateTimeField();end_at=models.DateTimeField();status=models.CharField(max_length=20,choices=STATUS,default="booked")
+    class Meta:db_table="admin_meeting_bookings"
+class AdminSealRequestModel(models.Model):
+    STATUS=[("draft","Draft"),("pending","Pending"),("approved","Approved"),("rejected","Rejected")]
+    requester=models.ForeignKey(UserModel,on_delete=models.PROTECT);reason=models.TextField();document_path=models.CharField(max_length=500);status=models.CharField(max_length=20,choices=STATUS,default="draft");created_at=models.DateTimeField(auto_now_add=True)
+    class Meta:db_table="admin_seal_requests"
+class AdminLicenseModel(models.Model):
+    license_type=models.CharField(max_length=128);file_path=models.CharField(max_length=500);issue_date=models.DateField();expiry_date=models.DateField();owner_department=models.ForeignKey(DepartmentModel,on_delete=models.PROTECT);created_by=models.ForeignKey(UserModel,on_delete=models.PROTECT);created_at=models.DateTimeField(auto_now_add=True)
+    class Meta:db_table="admin_licenses"
+
+
+
+class StockWriteoffModel(models.Model):
+    STATUS = [("draft", "Draft"), ("pending_approval", "Pending approval"), ("approved", "Approved"), ("posted", "Posted"), ("rejected", "Rejected"), ("cancelled", "Cancelled")]
+    writeoff_no = models.CharField(max_length=64, unique=True)
+    warehouse = models.ForeignKey(WarehouseModel, on_delete=models.PROTECT)
+    reason = models.TextField()
+    status = models.CharField(max_length=24, choices=STATUS, default="draft")
+    created_by = models.ForeignKey(UserModel, on_delete=models.PROTECT, related_name="created_stock_writeoffs")
+    created_at = models.DateTimeField(auto_now_add=True)
+    approved_by = models.ForeignKey(UserModel, null=True, blank=True, on_delete=models.PROTECT, related_name="approved_stock_writeoffs")
+    approved_at = models.DateTimeField(null=True, blank=True)
+    posted_by = models.ForeignKey(UserModel, null=True, blank=True, on_delete=models.PROTECT, related_name="posted_stock_writeoffs")
+    posted_at = models.DateTimeField(null=True, blank=True)
+    review_comment = models.TextField(blank=True, default="")
+
+    class Meta:
+        db_table = "stock_writeoffs"
+
+
+class StockWriteoffItemModel(models.Model):
+    writeoff = models.ForeignKey(StockWriteoffModel, on_delete=models.CASCADE, related_name="items")
+    sku = models.ForeignKey(GoodsSKUModel, on_delete=models.PROTECT)
+    location = models.ForeignKey(WarehouseLocationModel, null=True, blank=True, on_delete=models.PROTECT)
+    qty = models.DecimalField(max_digits=14, decimal_places=3)
+    batch_no = models.CharField(max_length=128, blank=True, default="")
+    expiry_date = models.DateField(null=True, blank=True)
+    unit_cost = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+
+    class Meta:
+        db_table = "stock_writeoff_items"
+        constraints = [
+            models.UniqueConstraint(fields=["writeoff", "sku", "location", "batch_no"], name="unique_writeoff_sku_location_batch"),
+            models.CheckConstraint(condition=models.Q(qty__gt=0), name="writeoff_positive_qty"),
+            models.CheckConstraint(condition=models.Q(unit_cost__gte=0) | models.Q(unit_cost__isnull=True), name="writeoff_nonnegative_cost"),
+        ]
+
+
+class StockWriteoffPhotoModel(models.Model):
+    writeoff = models.ForeignKey(StockWriteoffModel, on_delete=models.PROTECT, related_name="photos")
+    file_path = models.CharField(max_length=255)
+    file_name = models.CharField(max_length=255)
+    content_type = models.CharField(max_length=32)
+    size = models.PositiveIntegerField()
+    is_active = models.BooleanField(default=True)
+    uploaded_by = models.ForeignKey(UserModel, on_delete=models.PROTECT)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "stock_writeoff_photos"

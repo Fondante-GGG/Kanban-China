@@ -4,18 +4,28 @@ from datetime import date
 from decimal import Decimal, InvalidOperation
 
 from django.db.models import Sum, Count, Q
+from django.db import transaction
 from django.http import JsonResponse, FileResponse, HttpResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 
 from backend.domain.exceptions import PermissionDeniedException, ValidationException, EntityNotFoundException
-from backend.infrastructure.persistence.models import ExpenseModel, ExpenseAttachmentModel, ReimbursementPaymentModel, ExpenseActivityLogModel, NotificationModel, UserModel
+from backend.infrastructure.persistence.models import DepartmentModel, ExpenseModel, ExpenseAttachmentModel, ReimbursementPaymentModel, ExpenseActivityLogModel, NotificationModel, UserModel
 from backend.presentation.middlewares import login_required_domain
 
 
 FINANCE_ROLES = {"general_director", "accountant"}
 EDITABLE_STATUSES = {"draft", "needs_info"}
 VALID_STATUSES = {"draft", "under_review", "needs_info", "approved", "rejected", "paid"}
+ALLOWED_STATUS_TRANSITIONS = {
+    "draft": {"under_review"},
+    "needs_info": {"under_review"},
+    "under_review": {"needs_info", "approved", "rejected"},
+    "approved": set(),
+    "rejected": set(),
+    "paid": set(),
+}
+TERMINAL_ATTACHMENT_STATUSES = {"approved", "rejected", "paid"}
 
 
 def _can_manage(user):
@@ -85,6 +95,24 @@ def _apply_expense_filters(queryset, params, allow_department=True):
     return queryset
 
 
+def _expense_department_id(user, requested_department_id):
+    """Resolve an expense department without allowing staff to impersonate another unit."""
+    if str(user.role) not in FINANCE_ROLES:
+        if not user.department_id:
+            raise ValidationException("Your account must be assigned to a department before creating an expense")
+        return user.department_id
+
+    if requested_department_id in (None, ""):
+        return user.department_id
+    try:
+        department_id = int(requested_department_id)
+    except (TypeError, ValueError):
+        raise ValidationException("department_id must be an integer")
+    if department_id <= 0 or not DepartmentModel.objects.filter(id=department_id).exists():
+        raise ValidationException("department_id must reference an existing department")
+    return department_id
+
+
 @csrf_exempt
 @login_required_domain
 def expenses_view(request):
@@ -109,7 +137,7 @@ def expenses_view(request):
         amount = Decimal(str(body["amount"])); purchase_date = date.fromisoformat(body["purchase_date"])
     except (InvalidOperation, ValueError): raise ValidationException("Invalid amount or purchase_date")
     if amount <= 0 or body["payment_source"] not in {"company", "personal"}: raise ValidationException("Amount must be positive and payment_source valid")
-    department_id = body.get("department_id") or request.user_entity.department_id
+    department_id = _expense_department_id(request.user_entity, body.get("department_id"))
     expense = ExpenseModel.objects.create(purchase_date=purchase_date, department_id=department_id, category=str(body["category"]).strip(), supplier=str(body.get("supplier", "")).strip(), description=str(body.get("description", "")).strip(), amount=amount, currency=str(body.get("currency", "KGS")).upper(), payment_source=body["payment_source"], payment_method=body["payment_method"], status="draft", created_by_id=request.user_entity.id)
     _log(expense, request.user_entity, "created", new_status="draft")
     return JsonResponse(_serialize(_get_expense(expense.id), True), status=201)
@@ -146,10 +174,12 @@ def expense_status_view(request, expense_id):
     status = body.get("status"); comment = str(body.get("comment", "")).strip()
     if status not in VALID_STATUSES: raise ValidationException("Invalid status")
     if status == "under_review":
-        if expense.created_by_id != user.id or expense.status not in EDITABLE_STATUSES: raise PermissionDeniedException("Only your draft can be submitted")
+        if expense.created_by_id != user.id or expense.status not in EDITABLE_STATUSES: raise PermissionDeniedException("Only your draft or returned expense can be submitted")
     else:
         if not _can_manage(user): raise PermissionDeniedException("Only accountant or director can change this status")
         if status == "rejected" and not comment: raise ValidationException("Comment is required when rejecting an expense")
+    if status not in ALLOWED_STATUS_TRANSITIONS.get(expense.status, set()):
+        raise ValidationException(f"Status cannot change from {expense.status} to {status}")
     old_status = expense.status; expense.status = status; expense.accountant_comment = comment if _can_manage(user) else expense.accountant_comment
     if _can_manage(user): expense.reviewed_by_id = user.id; expense.reviewed_at = timezone.now()
     expense.save(); _log(expense, user, "status_changed", old_status, status, comment)
@@ -166,6 +196,8 @@ def expense_attachments_view(request, expense_id):
     if request.method != "POST": return JsonResponse({"error": "Method not allowed"}, status=405)
     expense = _get_expense(expense_id)
     if expense.created_by_id != request.user_entity.id and not _can_manage(request.user_entity): raise PermissionDeniedException("Cannot attach documents to this expense")
+    if expense.status in TERMINAL_ATTACHMENT_STATUSES:
+        raise ValidationException("Documents cannot be added after the expense has a final decision")
     upload = request.FILES.get("file")
     if not upload: raise ValidationException("file is required")
     if upload.size > 15 * 1024 * 1024: raise ValidationException("File size must not exceed 15 MB")
@@ -191,19 +223,23 @@ def expense_attachment_download_view(request, attachment_id):
 def reimbursement_payment_view(request, expense_id):
     if request.method != "POST": return JsonResponse({"error": "Method not allowed"}, status=405)
     if not _can_manage(request.user_entity): raise PermissionDeniedException("Only accountant or director can record payment")
-    expense = _get_expense(expense_id)
-    if expense.payment_source != "personal" or expense.status != "approved": raise ValidationException("Only approved personal expenses can be paid")
     try: body = json.loads(request.body or "{}")
     except json.JSONDecodeError: raise ValidationException("Invalid JSON body")
-    try: amount = Decimal(str(body.get("amount", expense.amount)))
-    except InvalidOperation: raise ValidationException("Invalid amount")
-    paid_total = sum((p.amount for p in expense.payments.all()), Decimal("0"))
-    if amount <= 0 or paid_total + amount > expense.amount: raise ValidationException("Payment amount exceeds reimbursement balance")
-    payment = ReimbursementPaymentModel.objects.create(expense=expense, amount=amount, payment_method=str(body.get("payment_method", "bank_transfer")), transaction_number=str(body.get("transaction_number", "")), created_by_id=request.user_entity.id)
-    if paid_total + amount == expense.amount:
-        old = expense.status; expense.status = "paid"; expense.save(); _log(expense, request.user_entity, "payment_recorded", old, "paid", payment.transaction_number)
-    else: _log(expense, request.user_entity, "partial_payment", comment=payment.transaction_number)
-    _notify(expense.created_by_id, "Возмещение выплачено", f"По расходу «{expense.category}» зафиксирована выплата {amount} {expense.currency}.", expense.id)
+    with transaction.atomic():
+        try:
+            expense = ExpenseModel.objects.select_for_update().select_related("department", "created_by", "reviewed_by").get(id=expense_id)
+        except ExpenseModel.DoesNotExist:
+            raise EntityNotFoundException("Expense", expense_id)
+        if expense.payment_source != "personal" or expense.status != "approved": raise ValidationException("Only approved personal expenses can be paid")
+        try: amount = Decimal(str(body.get("amount", expense.amount)))
+        except InvalidOperation: raise ValidationException("Invalid amount")
+        paid_total = ReimbursementPaymentModel.objects.filter(expense_id=expense.id).aggregate(total=Sum("amount"))["total"] or Decimal("0")
+        if amount <= 0 or paid_total + amount > expense.amount: raise ValidationException("Payment amount exceeds reimbursement balance")
+        payment = ReimbursementPaymentModel.objects.create(expense=expense, amount=amount, payment_method=str(body.get("payment_method", "bank_transfer")), transaction_number=str(body.get("transaction_number", "")), created_by_id=request.user_entity.id)
+        if paid_total + amount == expense.amount:
+            old = expense.status; expense.status = "paid"; expense.save(); _log(expense, request.user_entity, "payment_recorded", old, "paid", payment.transaction_number)
+        else: _log(expense, request.user_entity, "partial_payment", comment=payment.transaction_number)
+        _notify(expense.created_by_id, "Возмещение выплачено", f"По расходу «{expense.category}» зафиксирована выплата {amount} {expense.currency}.", expense.id)
     return JsonResponse(_serialize(_get_expense(expense.id), True), status=201)
 
 

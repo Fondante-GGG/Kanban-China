@@ -1,13 +1,37 @@
 import os
+import secrets
+import sys
 from pathlib import Path
+from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "kanban-secret-key-super-secure-jwt-2026-production")
+def _env_list(name, default=""):
+    return [value.strip() for value in os.environ.get(name, default).split(",") if value.strip()]
 
-DEBUG = os.environ.get("DJANGO_DEBUG", "True").lower() in ("true", "1")
 
-ALLOWED_HOSTS = ["*"]
+DEBUG = os.environ.get("DJANGO_DEBUG", "False").lower() in ("true", "1")
+# A generated fallback prevents an accidentally committed development key from
+# being used in production. Deployments should always set DJANGO_SECRET_KEY so
+# sessions and signed values survive a restart.
+_configured_secret = os.environ.get("DJANGO_SECRET_KEY")
+_legacy_example_secret = "kanban-secret-key-super-secure-jwt-2026-production"
+_has_configured_secret = bool(_configured_secret and _configured_secret != _legacy_example_secret)
+# Tests need an isolated signing key but must never make a production process
+# silently rotate JWT/signing secrets on restart.
+if not DEBUG and not _has_configured_secret and "test" not in sys.argv:
+    raise ImproperlyConfigured("DJANGO_SECRET_KEY must be configured when DJANGO_DEBUG is false")
+SECRET_KEY = _configured_secret if _has_configured_secret else secrets.token_urlsafe(64)
+
+# Password onboarding is intentionally disabled unless delivery is configured
+# in production.  This prevents activating an HR workflow that cannot safely
+# deliver a one-time secret to the employee.
+ONBOARDING_EMAIL_REQUIRED = os.environ.get("ONBOARDING_EMAIL_REQUIRED", "False").lower() in ("true", "1")
+if ONBOARDING_EMAIL_REQUIRED and not os.environ.get("EMAIL_HOST"):
+    raise ImproperlyConfigured("EMAIL_HOST is required when onboarding email delivery is enabled")
+
+# ALLOWED_HOSTS is retained as a compatibility alias for existing deployments.
+ALLOWED_HOSTS = _env_list("DJANGO_ALLOWED_HOSTS", os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1,testserver"))
 
 INSTALLED_APPS = [
     "daphne",
@@ -97,11 +121,15 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
+PRIVATE_MEDIA_ROOT = BASE_DIR / "private_media"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# CORS
-CORS_ALLOW_ALL_ORIGINS = True
+# CORS: opt in to each browser origin instead of accepting credentials from any
+# website. The local Next.js origins are useful for development and can be
+# replaced with CORS_ALLOWED_ORIGINS in deployment.
+CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOWED_ORIGINS = _env_list("CORS_ALLOWED_ORIGINS", "http://localhost:3001,http://127.0.0.1:3001")
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_METHODS = ["DELETE", "GET", "OPTIONS", "PATCH", "POST", "PUT"]
 CORS_ALLOW_HEADERS = ["accept", "accept-encoding", "authorization", "content-type", "dnt", "origin", "user-agent", "x-csrftoken", "x-requested-with"]

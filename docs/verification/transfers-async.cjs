@@ -1,0 +1,42 @@
+const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
+const assert=require('node:assert/strict');
+const {context,state}=require('./transfers-smoke.cjs');
+const deferred=()=>{let release;const promise=new Promise(resolve=>{release=resolve});return {promise,release}};
+(async()=>{
+ const browser=await chromium.launch({headless:true});
+ try {
+  const shared=state();
+  const {ctx,page,root,errors}=await context(browser,shared,'sender');
+  const gate=deferred();shared.detailGate=gate.promise;
+  const pending=page.waitForRequest(r=>r.url().includes('warehouse/transfers?')&&new URL(r.url()).searchParams.has('id'));
+  await root.getByRole('button',{name:'Открыть',exact:true}).click();await pending;
+  await root.getByLabel(/^Статус/).selectOption('approved');
+  gate.release();await page.waitForTimeout(600);
+  assert.equal(await root.locator('#transfer-details').count(),0,'Stale detail must not reopen after filter changes');
+  await root.getByLabel(/^Статус/).selectOption('');
+  const catalogGate=deferred();shared.catalogGate=catalogGate.promise;
+  const catalogPending=page.waitForRequest(r=>r.url().includes('warehouse/transfers/catalog'));
+  await root.getByRole('button',{name:'Обновить',exact:true}).last().click();await catalogPending;
+  shared.detailForbidden=true;shared.catalogForbidden=true;
+  await root.getByRole('button',{name:'Открыть',exact:true}).click();
+  await root.getByRole('alert').waitFor();
+  catalogGate.release();await page.waitForTimeout(600);
+  assert.equal(await root.getByRole('button',{name:'Новое перемещение',exact:true}).count(),0,'Detail 403 clears create permissions');
+  assert.equal(await root.locator('#transfer-details').count(),0);
+  assert.equal(errors.length,0,JSON.stringify(errors));
+  await ctx.close();
+  const retryState=state();
+  const retry=await context(browser,retryState,'sender');
+  retryState.outsidePage=true;retryState.failNextDetail=true;retryState.movements=true;
+  await retry.root.getByRole('button',{name:'Движения',exact:true}).click();
+  await retry.root.getByRole('button',{name:'Открыть',exact:true}).click();
+  await retry.root.getByRole('alert').waitFor();
+  assert.equal(await retry.root.locator('#transfer-details').count(),0);
+  await retry.root.getByRole('button',{name:'Повторить',exact:true}).click();
+  await retry.root.locator('#transfer-details').waitFor();
+  assert((await retry.root.locator('#transfer-details').innerText()).includes('TR-TEST'));
+  assert.equal(retry.errors.length,0,JSON.stringify(retry.errors));
+  console.log(JSON.stringify({result:'PASS',flows:['delayed detail cannot reopen after filtering','detail403 clears stale create and actions','delayed catalog200 cannot restore revoked permissions','exact movement document retries after500 outside list page'],errors:[...errors,...retry.errors]}));
+  await retry.ctx.close();
+ }finally{await browser.close()}
+})().catch(e=>{console.error(e);process.exitCode=1});

@@ -3,13 +3,14 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from backend.infrastructure.di.container import container
 from backend.presentation.middlewares import login_required_domain
+from backend.presentation.api.utils import parse_json_body
 
 
 @csrf_exempt
 @login_required_domain
 def convert_chinese_view(request):
     if request.method == "POST":
-        data = json.loads(request.body.decode("utf-8"))
+        data = parse_json_body(request)
         text = data.get("text", "")
         variant = data.get("variant", "zh-Hans")  # "zh-Hans" or "zh-Hant"
         converted = container.translation_service.convert_chinese(text, variant)
@@ -22,7 +23,7 @@ def convert_chinese_view(request):
 @login_required_domain
 def translate_text_view(request):
     if request.method == "POST":
-        data = json.loads(request.body.decode("utf-8"))
+        data = parse_json_body(request)
         text = data.get("text", "")
         source_lang = data.get("source_lang")
         multilingual = container.translation_service.translate_multilingual(text, source_lang)

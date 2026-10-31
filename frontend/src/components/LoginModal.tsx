@@ -26,8 +26,8 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onSuccess, lang }) => {
       setError(null);
       const res = await api.login(email.trim(), password);
       onSuccess(res.user);
-    } catch (err: any) {
-      setError(err.message || 'Ошибка входа');
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : t.login);
     } finally {
       setLoading(false);
     }
@@ -45,12 +45,12 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onSuccess, lang }) => {
             {t.appName}
           </h2>
           <p className="text-xs text-slate-800 dark:text-slate-300 font-semibold max-w-xs mx-auto">
-            Канбан-система управления задачами с ролевым доступом и машинным переводом
+            {t.loginSubtitle}
           </p>
         </div>
 
         {error && (
-          <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-300 dark:border-rose-900 text-xs text-rose-700 dark:text-rose-400 font-bold text-center">
+          <div role="alert" className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-300 dark:border-rose-900 text-xs text-rose-700 dark:text-rose-400 font-bold text-center">
             {error}
           </div>
         )}
@@ -97,7 +97,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onSuccess, lang }) => {
             disabled={loading}
             className="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-extrabold shadow-md shadow-blue-500/25 flex items-center justify-center gap-2 transition disabled:opacity-50"
           >
-            <span>{loading ? 'Вход...' : t.login}</span>
+            <span>{loading ? t.loggingIn : t.login}</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </form>

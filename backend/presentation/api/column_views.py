@@ -6,13 +6,14 @@ from backend.infrastructure.di.container import container
 from backend.infrastructure.persistence.models import ColumnModel
 from backend.presentation.middlewares import login_required_domain
 from backend.presentation.websockets.broadcaster import broadcast_to_board
+from backend.presentation.api.utils import parse_json_body
 
 
 @csrf_exempt
 @login_required_domain
 def columns_create_view(request):
     if request.method == "POST":
-        data = json.loads(request.body.decode("utf-8"))
+        data = parse_json_body(request)
         dto = ColumnCreateDTO(
             board_id=data.get("board_id"),
             title=data.get("title", ""),
@@ -41,7 +42,7 @@ def column_detail_view(request, column_id: int):
     board_id = col.board_id if col else None
 
     if request.method == "PUT":
-        data = json.loads(request.body.decode("utf-8"))
+        data = parse_json_body(request)
         dto = ColumnUpdateDTO(
             title=data.get("title"),
             language=data.get("language", "ru"),
@@ -82,7 +83,7 @@ def column_detail_view(request, column_id: int):
 @login_required_domain
 def reorder_columns_view(request):
     if request.method == "POST":
-        data = json.loads(request.body.decode("utf-8"))
+        data = parse_json_body(request)
         dto = ReorderColumnsDTO(
             board_id=data.get("board_id"),
             column_orders=data.get("column_orders", [])

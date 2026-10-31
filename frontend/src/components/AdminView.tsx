@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { User, Department, BoardSummary, LanguageCode, RoleType } from '@/types';
 import { 
   translations, 
@@ -21,9 +21,7 @@ import {
   KeyRound,
   Building2,
   Search,
-  Kanban,
-  CheckCircle,
-  FolderPlus
+  Kanban
 } from 'lucide-react';
 
 interface AdminViewProps {
@@ -40,7 +38,6 @@ export const AdminView: React.FC<AdminViewProps> = ({ lang, currentUser, onRefre
   const [users, setUsers] = useState<User[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [boards, setBoards] = useState<BoardSummary[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchUser, setSearchUser] = useState('');
   const [searchDept, setSearchDept] = useState('');
   const [deptFilter, setDeptFilter] = useState<number | undefined>(undefined);
@@ -74,27 +71,25 @@ export const AdminView: React.FC<AdminViewProps> = ({ lang, currentUser, onRefre
   const [newBoardManagerId, setNewBoardManagerId] = useState<number | undefined>(undefined);
   const [newBoardEmpIds, setNewBoardEmpIds] = useState<number[]>([]);
 
-  useEffect(() => {
-    loadAllData();
-  }, [deptFilter]);
-
-  const loadAllData = async () => {
+  const loadAllData = useCallback(async () => {
     try {
-      setLoading(true);
       const [uRes, dRes, bRes] = await Promise.all([
         api.getUsers(deptFilter),
         api.getDepartments(),
         api.getBoards(),
       ]);
+
       setUsers(uRes.users);
       setDepartments(dRes.departments);
       setBoards(bRes.boards);
     } catch (err) {
       console.error(err);
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [deptFilter]);
+
+  useEffect(() => {
+    loadAllData();
+  }, [loadAllData]);
 
   // --- Department Actions ---
   const handleOpenAddDept = () => {

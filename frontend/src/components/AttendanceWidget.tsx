@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { User, LanguageCode, AttendanceStatus } from '@/types';
-import { translations, localizeDynamicText } from '@/lib/i18n';
+import { translations } from '@/lib/i18n';
 import { api } from '@/lib/api';
 import {
   MapPin,
@@ -11,12 +11,7 @@ import {
   Coffee,
   CheckCircle2,
   AlertTriangle,
-  Clock,
   ShieldCheck,
-  ChevronDown,
-  Navigation,
-  Sparkles,
-  Info
 } from 'lucide-react';
 
 interface AttendanceWidgetProps {
@@ -46,13 +41,6 @@ export const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({
   const [showConsentModal, setShowConsentModal] = useState(false);
   const trackerIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  useEffect(() => {
-    if (currentUser) {
-      loadStatus();
-      obtainLocation();
-    }
-  }, [currentUser]);
-
   // Periodic location updater for background tracking
   useEffect(() => {
     if (status?.is_consent_granted && status?.is_checked_in) {
@@ -70,7 +58,7 @@ export const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({
                 if (res.needs_absence_prompt) {
                   setShowLeaveModal(true);
                 }
-              } catch (e) {
+              } catch {
                 // silent
               }
             },
@@ -88,7 +76,7 @@ export const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({
     };
   }, [status?.is_consent_granted, status?.is_checked_in]);
 
-  const obtainLocation = () => {
+  const obtainLocation = useCallback(() => {
     if (typeof window !== 'undefined' && 'geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
@@ -98,9 +86,6 @@ export const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({
             accuracy: pos.coords.accuracy,
           };
           setGeoCoords(coords);
-          if (status?.office) {
-            calculateDistance(coords, status.office);
-          }
         },
         (err) => {
           console.warn('Geolocation warning:', err.message);
@@ -108,9 +93,9 @@ export const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({
         { enableHighAccuracy: true, timeout: 8000 }
       );
     }
-  };
+  }, []);
 
-  const calculateDistance = (coords: { latitude: number; longitude: number }, office: { latitude: number; longitude: number }) => {
+  const calculateDistance = useCallback((coords: { latitude: number; longitude: number }, office: { latitude: number; longitude: number }) => {
     const R = 6371000;
     const dLat = ((office.latitude - coords.latitude) * Math.PI) / 180;
     const dLon = ((office.longitude - coords.longitude) * Math.PI) / 180;
@@ -123,19 +108,29 @@ export const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     const d = Math.round(R * c);
     setDistanceToOffice(d);
-  };
+  }, []);
 
-  const loadStatus = async () => {
+  const loadStatus = useCallback(async () => {
     try {
       const res = await api.getAttendanceStatus();
       setStatus(res);
-      if (geoCoords && res.office) {
-        calculateDistance(geoCoords, res.office);
-      }
     } catch (err: any) {
       console.error(err);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (currentUser) {
+      loadStatus();
+      obtainLocation();
+    }
+  }, [currentUser, loadStatus, obtainLocation]);
+
+  useEffect(() => {
+    if (geoCoords && status?.office) {
+      calculateDistance(geoCoords, status.office);
+    }
+  }, [geoCoords, status?.office, calculateDistance]);
 
   const handleCheckIn = async () => {
     try {
@@ -155,7 +150,7 @@ export const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({
             accuracy: pos.coords.accuracy,
           };
           setGeoCoords(currentCoords);
-        } catch (e) {
+        } catch {
           // Coords fallback
         }
       }

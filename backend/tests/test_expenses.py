@@ -2,6 +2,7 @@ import json
 from decimal import Decimal
 
 from django.test import TestCase, Client
+from django.core.files.uploadedfile import SimpleUploadedFile
 
 from backend.domain.entities import User
 from backend.infrastructure.di.container import container
@@ -72,3 +73,45 @@ class ExpenseApiTest(TestCase):
         client = self.client_for(self.accountant)
         self.assertEqual(client.get("/api/expenses?start_date=not-a-date").status_code, 400)
         self.assertEqual(client.get("/api/expenses/analytics?department_id=not-a-number").status_code, 400)
+
+    def test_finance_state_machine_rejects_paid_without_payment_record(self):
+        expense_id = self.create_personal_expense()
+        employee_client = self.client_for(self.employee)
+        accountant_client = self.client_for(self.accountant)
+        employee_client.post(f"/api/expenses/{expense_id}/status", data=json.dumps({"status": "under_review"}), content_type="application/json")
+        self.assertEqual(accountant_client.post(f"/api/expenses/{expense_id}/status", data=json.dumps({"status": "paid"}), content_type="application/json").status_code, 400)
+
+    def test_employee_cannot_choose_another_department_when_creating_expense(self):
+        other_department = DepartmentModel.objects.create(name="Other department")
+        response = self.client_for(self.employee).post("/api/expenses", data=json.dumps({
+            "purchase_date": "2026-10-30", "category": "Stationery", "amount": "150.00",
+            "payment_source": "personal", "payment_method": "personal_card",
+            "department_id": other_department.id,
+        }), content_type="application/json")
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.json()["department_id"], self.department.id)
+
+    def test_accountant_can_choose_only_an_existing_department(self):
+        other_department = DepartmentModel.objects.create(name="Other department")
+        client = self.client_for(self.accountant)
+        base_payload = {
+            "purchase_date": "2026-10-30", "category": "Office", "amount": "150.00",
+            "payment_source": "company", "payment_method": "corporate_card",
+        }
+        allowed = client.post("/api/expenses", data=json.dumps({**base_payload, "department_id": other_department.id}), content_type="application/json")
+        self.assertEqual(allowed.status_code, 201)
+        self.assertEqual(allowed.json()["department_id"], other_department.id)
+        denied = client.post("/api/expenses", data=json.dumps({**base_payload, "department_id": 999999}), content_type="application/json")
+        self.assertEqual(denied.status_code, 400)
+
+    def test_documents_are_rejected_after_final_expense_decision(self):
+        expense_id = self.create_personal_expense()
+        employee_client = self.client_for(self.employee)
+        accountant_client = self.client_for(self.accountant)
+        employee_client.post(f"/api/expenses/{expense_id}/status", data=json.dumps({"status": "under_review"}), content_type="application/json")
+        self.assertEqual(accountant_client.post(f"/api/expenses/{expense_id}/status", data=json.dumps({"status": "approved"}), content_type="application/json").status_code, 200)
+        response = employee_client.post(
+            f"/api/expenses/{expense_id}/attachments",
+            data={"document_type": "kkm_receipt", "file": SimpleUploadedFile("receipt.pdf", b"receipt", content_type="application/pdf")},
+        )
+        self.assertEqual(response.status_code, 400)

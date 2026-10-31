@@ -1,3 +1,7 @@
+import type { StockWriteoff, WriteoffCatalog, WriteoffInput, WriteoffQuery } from '@/types';
+import type { WarehouseCatalog, WarehouseInventory, WarehouseMovement, WarehouseReceipt, WarehouseCount, WarehouseExpiry, WarehouseListQuery, WarehouseReceiptInput, WarehouseCountInput, TransferCatalog, TransferInput, TransferQuery, StockTransfer } from '@/types';
+import type { KpiTemplate, KpiTask, KpiAssignee, KpiComments, KpiCycle, KpiTemplateItem, ApprovalRequest, Employee, SystemPermission, SystemRole, SystemRoleUser } from '@/types';
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8080/api';
 
 class ApiClient {
@@ -57,7 +61,9 @@ class ApiClient {
     if (contentType.includes('application/json')) {
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || 'Server error occurred');
+        const error = new Error(data.error || 'Server error occurred');
+        Object.assign(error, { code: data.code, status: res.status });
+        throw error;
       }
       return data;
     }
@@ -69,7 +75,75 @@ class ApiClient {
     return res as unknown as T;
   }
 
+  // WMS: permissions, document actions and selectable data come from the server.
+  async getWriteoffCatalog() { return this.request<WriteoffCatalog>('/warehouse/writeoffs/catalog'); }
+  async getWriteoffs(params: WriteoffQuery = {}) { return this.request<{ items: StockWriteoff[]; count: number }>(`/warehouse/writeoffs?${this.warehouseQuery(params)}`); }
+  async createWriteoff(data: WriteoffInput) { return this.request<{ id: number; status: string }>('/warehouse/writeoffs', { method: 'POST', body: JSON.stringify(data) }); }
+  async updateWriteoff(id: number, data: WriteoffInput) { return this.request<{ id: number; status: string }>(`/warehouse/writeoffs/${id}`, { method: 'PATCH', body: JSON.stringify(data) }); }
+  async writeoffAction(id: number, action: 'submit' | 'post' | 'cancel', comment = '') { return this.request<{ id: number; status: string }>(`/warehouse/writeoffs/${id}/${action}`, { method: 'POST', body: JSON.stringify({ comment }) }); }
+  async reviewWriteoff(id: number, decision: 'approve' | 'return' | 'reject', comment: string) { return this.request<{ id: number; status: string }>(`/warehouse/writeoffs/${id}/review`, { method: 'POST', body: JSON.stringify({ decision, comment }) }); }
+  async uploadWriteoffPhoto(id: number, file: File) { const data = new FormData(); data.append('file', file); return this.request<{ id: number }>(`/warehouse/writeoffs/${id}/photos`, { method: 'POST', body: data }); }
+  async deleteWriteoffPhoto(id: number, photoId: number) { return this.request<{ id: number }>(`/warehouse/writeoffs/${id}/photos/${photoId}`, { method: 'DELETE' }); }
+  async getWriteoffPhoto(id: number, photoId: number, signal?: AbortSignal): Promise<Blob> {
+    const response = await fetch(`${API_BASE_URL}/warehouse/writeoffs/${id}/photos/${photoId}/download`, { headers: { Authorization: `Bearer ${this.getToken() || ''}` }, signal });
+    if (!response.ok) {
+      if (response.status === 401) this.setToken(null);
+      const data = await response.json().catch(() => ({}));
+      throw Object.assign(new Error(data.error || `HTTP ${response.status}`), { status: response.status, code: data.code });
+    }
+    return response.blob();
+  }
+  async getWarehouseCatalog() { return this.request<WarehouseCatalog>('/warehouse/catalog'); }
+  async getTransferCatalog() { return this.request<TransferCatalog>('/warehouse/transfers/catalog'); }
+  async getTransfers(params: TransferQuery = {}) {
+    const query = new URLSearchParams(this.warehouseQuery(params)); if (params.status) query.set('status', params.status);
+    return this.request<{ items: StockTransfer[]; count: number }>(`/warehouse/transfers?${query}`);
+  }
+  async createTransfer(data: TransferInput) { return this.request<{ id: number; status: string }>('/warehouse/transfers', { method: 'POST', body: JSON.stringify(data) }); }
+  async updateTransfer(id: number, data: TransferInput) { return this.request<{ id: number; status: string }>(`/warehouse/transfers/${id}`, { method: 'PATCH', body: JSON.stringify(data) }); }
+  async transferAction(id: number, action: 'submit' | 'dispatch' | 'receive' | 'cancel', comment = '') {
+    return this.request<{ id: number; status: string }>(`/warehouse/transfers/${id}/${action}`, { method: 'POST', body: JSON.stringify({ comment }) });
+  }
+  async reviewTransfer(id: number, decision: 'approve' | 'return' | 'reject', comment = '') {
+    return this.request<{ id: number; status: string }>(`/warehouse/transfers/${id}/review`, { method: 'POST', body: JSON.stringify({ decision, comment }) });
+  }
+  private warehouseQuery(params: WarehouseListQuery) {
+    const query = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => { if (value !== undefined) query.set(key, String(value)); });
+    return query.toString();
+  }
+  async getWarehouseInventory(params: WarehouseListQuery = {}) { return this.request<{ items: WarehouseInventory[]; count: number }>(`/warehouse/inventory?${this.warehouseQuery(params)}`); }
+  async getWarehouseMovements(params: WarehouseListQuery = {}) { return this.request<{ items: WarehouseMovement[]; count: number }>(`/warehouse/movements?${this.warehouseQuery(params)}`); }
+  async getWarehouseReceipts(params: WarehouseListQuery = {}) { return this.request<{ items: WarehouseReceipt[]; count: number }>(`/warehouse/receipts?${this.warehouseQuery(params)}`); }
+  async createWarehouseReceipt(data: WarehouseReceiptInput) { return this.request<{ id: number }>('/warehouse/receipts', { method: 'POST', body: JSON.stringify(data) }); }
+  async postWarehouseReceipt(id: number) { return this.request<{ id: number }>(`/warehouse/receipts/${id}/post`, { method: 'POST' }); }
+  async getWarehouseCounts(params: WarehouseListQuery = {}) { return this.request<{ items: WarehouseCount[]; count: number }>(`/warehouse/counts?${this.warehouseQuery(params)}`); }
+  async createWarehouseCount(data: WarehouseCountInput) { return this.request<{ id: number }>('/warehouse/counts', { method: 'POST', body: JSON.stringify(data) }); }
+  async approveWarehouseCount(id: number) { return this.request<{ id: number }>(`/warehouse/counts/${id}/approve`, { method: 'POST' }); }
+  async getWarehouseExpiry(warehouseId?: number, days = 30) { return this.request<WarehouseExpiry>(`/warehouse/alerts/expiry?days=${days}${warehouseId ? `&warehouse_id=${warehouseId}` : ''}`); }
+
+  // KPI: action availability is supplied by the authoritative server.
+  async getKpiTemplates() { return this.request<{ items: KpiTemplate[] }>('/kpi/templates'); }
+  async createKpiTemplate(data: { name: string; position_code: string; cycle: KpiCycle; items: KpiTemplateItem[] }) { return this.request<{ id: number }>('/kpi/templates', { method: 'POST', body: JSON.stringify(data) }); }
+  async getKpiAssignees() { return this.request<{ items: KpiAssignee[] }>('/kpi/assignees'); }
+  async getKpiTasks(params: { archived?: boolean; year?: number; status?: string; offset?: number; limit?: number } = {}) {
+    const query = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => { if (value !== undefined && value !== '') query.set(key, String(value)); });
+    return this.request<{ items: KpiTask[]; count: number }>(`/kpi/tasks?${query}`);
+  }
+  async createKpiTask(data: { template_id: number; employee_id: number; year: number; period: string }) { return this.request<{ id: number }>('/kpi/tasks', { method: 'POST', body: JSON.stringify(data) }); }
+  async scoreKpiTask(id: number, data: { stage: 'self' | 'manager'; score: string; comment_ru: string; comment_zh: string; comment_ky: string }) { return this.request<{ id: number }>(`/kpi/tasks/${id}/score`, { method: 'POST', body: JSON.stringify(data) }); }
+  async reviewKpiTask(id: number, decision: 'approve' | 'return', comments: KpiComments) { return this.request<{ id: number }>(`/kpi/tasks/${id}/review`, { method: 'POST', body: JSON.stringify({ decision, comment_ru: comments.ru, comment_zh: comments.zh, comment_ky: comments.ky }) }); }
+  async acknowledgeKpiTask(id: number) { return this.request<{ id: number }>(`/kpi/tasks/${id}/acknowledge`, { method: 'POST' }); }
+  async archiveKpiTask(id: number) { return this.request<{ id: number }>(`/kpi/tasks/${id}/archive`, { method: 'POST' }); }
+
   // Auth
+  async getSuppliers() { return this.request<{items: any[]}>('/procurement/suppliers'); }
+  async getSkus() { return this.request<{items: any[]}>('/procurement/skus'); }
+  async createSupplier(data: { name_ru: string; name_ky?: string; name_zh?: string }) { return this.request<any>('/procurement/suppliers', { method: 'POST', body: JSON.stringify(data) }); }
+  async submitSupplier(id: number) { return this.request<any>(`/procurement/suppliers/${id}/submit`, { method: 'POST' }); }
+  async createSku(data: { sku_code: string; name_ru: string; name_ky?: string; name_zh?: string }) { return this.request<any>('/procurement/skus', { method: 'POST', body: JSON.stringify(data) }); }
+  async submitSku(id: number) { return this.request<any>(`/procurement/skus/${id}/submit`, { method: 'POST' }); }
   async login(email: string, password: string) {
     const res = await this.request<{ access_token: string; user: any }>('/auth/login', {
       method: 'POST',
@@ -83,11 +157,54 @@ class ApiClient {
     return this.request<any>('/auth/me');
   }
 
+  async updateInterfaceLanguage(interfaceLanguage: 'ru' | 'ky' | 'zh-Hans' | 'zh-Hant') {
+    return this.request<any>('/profile/language', {
+      method: 'PATCH',
+      body: JSON.stringify({ interface_language: interfaceLanguage }),
+    });
+  }
+
   async resetPassword(newPassword: string, userId?: number) {
     return this.request<{ message: string }>('/auth/reset-password', {
       method: 'POST',
       body: JSON.stringify({ new_password: newPassword, user_id: userId }),
     });
+  }
+
+  // HR, approvals and independent module permissions. Board roles remain separate.
+  async getEmployees(params?: { q?: string; department_id?: number; status?: string; page?: number; page_size?: number }) {
+    const query = new URLSearchParams(); Object.entries(params || {}).forEach(([key, value]) => { if (value !== undefined && value !== '') query.set(key, String(value)); });
+    return this.request<{ items: Employee[]; page: number; page_size: number; total: number }>(`/hr/employees${query.toString() ? `?${query}` : ''}`);
+  }
+  async createEmployee(data: Partial<Employee>) { return this.request<Employee>('/hr/employees', { method: 'POST', body: JSON.stringify(data) }); }
+  async getEmployee(id: number) { return this.request<Employee>(`/hr/employees/${id}`); }
+  async updateEmployee(id: number, data: Partial<Employee>) { return this.request<Employee>(`/hr/employees/${id}`, { method: 'PATCH', body: JSON.stringify(data) }); }
+  async submitEmployee(id: number) { return this.request<ApprovalRequest>(`/hr/employees/${id}/submit`, { method: 'POST' }); }
+  async submitTermination(id: number, reason: string) { return this.request<ApprovalRequest>(`/hr/employees/${id}/termination/submit`, { method: 'POST', body: JSON.stringify({ reason }) }); }
+  async getApprovals(scope: 'assigned' | 'submitted' | 'completed' = 'assigned', status?: string) {
+    const query = new URLSearchParams({ scope }); if (status) query.set('status', status);
+    return this.request<{ items: ApprovalRequest[]; scope: string }>(`/approvals/inbox?${query}`);
+  }
+  async actOnApproval(id: number, action: 'approve' | 'reject' | 'return', comment = '') { return this.request<ApprovalRequest>(`/approvals/${id}/actions`, { method: 'POST', body: JSON.stringify({ action, comment }) }); }
+  async getSystemRoles() {
+    const response = await this.request<{ items: Array<{ id: number; code: string; name: string; description?: string; permission_ids: number[]; permissions: string[] }> }>('/rbac/roles');
+    return { items: response.items.map(role => ({ ...role, active: true, permissions: role.permissions.map((code, index) => ({ id: role.permission_ids[index], code, name: code })) })) };
+  }
+  async getSystemPermissions() {
+    return this.request<{ items: SystemPermission[] }>('/rbac/permissions');
+  }
+  async getSystemRoleUsers() {
+    return this.request<{ items: SystemRoleUser[] }>('/rbac/users');
+  }
+  async createSystemRole(data: { code: string; name: string; description?: string }) { return this.request<SystemRole>('/rbac/roles', { method: 'POST', body: JSON.stringify(data) }); }
+  async updateRolePermissions(roleId: number, permission_ids: number[]) { return this.request<SystemRole>(`/rbac/roles/${roleId}/permissions`, { method: 'PUT', body: JSON.stringify({ permission_ids }) }); }
+  async assignUserSystemRoles(userId: number, role_ids: number[]) { return this.request<{ user_id: number; role_ids: number[] }>(`/users/${userId}/system-roles`, { method: 'PUT', body: JSON.stringify({ role_ids }) }); }
+  async getApproval(id: number) { return this.request<ApprovalRequest>(`/approvals/${id}`); }
+  async getAudit(params: { business_type?: string; business_id?: number } = {}) {
+    const query = new URLSearchParams();
+    if (params.business_type) query.set('business_type', params.business_type);
+    if (params.business_id) query.set('business_id', String(params.business_id));
+    return this.request<{ items: Array<{ id: number; action: string; business_type: string; business_id: number; actor_id: number; created_at: string }> }>(`/audit${query.toString() ? `?${query}` : ''}`);
   }
 
   // Boards
@@ -233,6 +350,21 @@ class ApiClient {
     return this.request<any>(`/attachments/${attachmentId}`, {
       method: 'DELETE',
     });
+  }
+
+  async downloadAttachment(attachmentId: number, fileName: string) {
+    const res = await fetch(`${API_BASE_URL}/attachments/${attachmentId}/download`, {
+      headers: { Authorization: `Bearer ${this.getToken() || ''}` },
+    });
+    if (!res.ok) throw new Error('Unable to download attachment');
+    const url = URL.createObjectURL(await res.blob());
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
   }
 
   // Notifications

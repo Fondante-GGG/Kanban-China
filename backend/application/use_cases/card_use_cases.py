@@ -9,6 +9,14 @@ from backend.domain.services import AccessPolicyService
 from backend.domain.exceptions import EntityNotFoundException, ValidationException
 
 
+def ensure_assignees_are_board_members(uow: IUnitOfWork, board_id: int, assignee_ids: List[int]) -> None:
+    requested_ids = set(assignee_ids)
+    member_ids = {member.user_id for member in uow.boards.get_members(board_id)}
+    invalid_ids = requested_ids - member_ids
+    if invalid_ids:
+        raise ValidationException("Assignees must be active members of this board.")
+
+
 class CreateCardUseCase:
     def __init__(self, uow: IUnitOfWork, translation_service: ITranslationService):
         self.uow = uow
@@ -59,6 +67,7 @@ class CreateCardUseCase:
 
             # Assign users
             if dto.assignee_ids:
+                ensure_assignees_are_board_members(self.uow, column.board_id, dto.assignee_ids)
                 self.uow.cards.set_assignees(created_card.id, dto.assignee_ids)
                 # Create notification for each assignee
                 for uid in dto.assignee_ids:
@@ -163,6 +172,7 @@ class UpdateCardUseCase:
             updated_card = self.uow.cards.update(card)
 
             if dto.assignee_ids is not None:
+                ensure_assignees_are_board_members(self.uow, column.board_id, dto.assignee_ids)
                 old_assignees = self.uow.cards.get_assignees(card_id)
                 old_ids = {a.id for a in old_assignees}
                 new_ids = set(dto.assignee_ids)
@@ -367,7 +377,7 @@ class GetCardDetailUseCase:
                 "attachments": [
                     {
                         "id": a.id,
-                        "file_path": a.file_path,
+                        "file_path": f"/api/attachments/{a.id}/download",
                         "file_name": a.file_name,
                         "file_size": a.file_size,
                         "content_type": a.content_type,

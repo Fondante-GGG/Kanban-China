@@ -102,6 +102,21 @@ class TestServicesAndReports(TestCase):
         payload = container.jwt_service.verify_token(res["access_token"])
         self.assertEqual(payload["email"], "director@company.com")
 
+    def test_authenticated_user_can_update_only_own_interface_language(self):
+        from django.test import Client
+        import json
+        login_uc = container.get_login_use_case()
+        token = login_uc.execute(LoginInputDTO(email="director@company.com", password="password123"))["access_token"]
+        client = Client(HTTP_AUTHORIZATION=f"Bearer {token}")
+        response = client.put(
+            "/api/profile/language",
+            data=json.dumps({"interface_language": "zh-Hant"}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["interface_language"], "zh-Hant")
+        self.assertEqual(client.put("/api/profile/language", data=json.dumps({"interface_language": "en"}), content_type="application/json").status_code, 400)
+
     def test_chinese_conversion(self):
         s2t = container.translation_service.convert_chinese("软件开发与任务管理", "zh-Hant")
         self.assertIn("軟件", s2t)

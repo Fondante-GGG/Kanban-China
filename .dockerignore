@@ -13,6 +13,8 @@ backend/__pycache__/
 backend/*.py[cod]
 backend/staticfiles/
 backend/media/
+private_media/
+backend/private_media/
 backend/*.sqlite3
 
 # Frontend

@@ -36,6 +36,7 @@ services:
       - "8080:8080"
     volumes:
       - backend_media:/app/backend/media
+      - backend_private_media:/app/backend/private_media
     depends_on:
       db:
         condition: service_healthy
@@ -60,3 +61,4 @@ services:
 volumes:
   postgres_data:
   backend_media:
+  backend_private_media:

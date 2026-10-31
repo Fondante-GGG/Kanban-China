@@ -12,6 +12,8 @@ from backend.application.dtos import (
     CheckInDTO, CheckOutDTO, LeaveAbsenceDTO, LocationLogDTO,
     AttendanceRecordEditDTO, ConsentDTO, DayStatusDTO, OfficeDTO, WorkScheduleDTO
 )
+from backend.presentation.api.platform_views import _require
+from backend.infrastructure.persistence.models import EmployeeModel, MonthlyTimesheetModel, AttendanceRecordModel
 
 
 def get_client_ip(request):
@@ -432,6 +434,32 @@ def attendance_timesheet_view(request):
         return JsonResponse(data, status=200)
 
     return JsonResponse({"error": "Method not allowed"}, status=405)
+
+
+@csrf_exempt
+@login_required_domain
+def confirm_monthly_timesheet_view(request):
+    if request.method != "POST": return JsonResponse({"error": "Method not allowed"}, status=405)
+    denied = _require(request, "attendance.timesheet.confirm")
+    if denied: return denied
+    try:
+        body = json.loads(request.body or "{}"); employee = EmployeeModel.objects.get(id=body["employee_id"], status="active")
+        year, month = int(body["year"]), int(body["month"])
+        if not 1 <= month <= 12: raise ValueError
+    except (json.JSONDecodeError, KeyError, ValueError, EmployeeModel.DoesNotExist):
+        return JsonResponse({"error": "valid active employee, year and month are required"}, status=400)
+    if not employee.user_id: return JsonResponse({"error": "Employee has no active account"}, status=409)
+    from datetime import date
+    from django.db.models import Count
+    from django.db import IntegrityError
+    start = date(year, month, 1); end = date(year + (month == 12), (month % 12) + 1, 1)
+    counts = AttendanceRecordModel.objects.filter(user_id=employee.user_id, timestamp__date__gte=start, timestamp__date__lt=end, verification_result__in=["verified", "manual_override"]).values("record_type").annotate(total=Count("id"))
+    snapshot = {item["record_type"]: item["total"] for item in counts}
+    try:
+        sheet = MonthlyTimesheetModel.objects.create(employee=employee, year=year, month=month, snapshot=snapshot, confirmed_by_id=request.user_entity.id)
+    except IntegrityError:
+        return JsonResponse({"error": "Monthly timesheet is already confirmed"}, status=409)
+    return JsonResponse({"id": sheet.id, "employee_id": employee.id, "year": year, "month": month, "snapshot": snapshot, "status": sheet.status}, status=201)
 
 
 @csrf_exempt

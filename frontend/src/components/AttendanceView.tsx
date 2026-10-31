@@ -1,12 +1,11 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   User,
   LanguageCode,
   AttendanceRecord,
   TimesheetReport,
-  TimesheetEmployee,
   Office,
   WorkSchedule,
 } from '@/types';
@@ -14,19 +13,12 @@ import {
   translations,
   localizePersonName,
   localizeDepartmentName,
-  localizeRole,
-  localizeDynamicText,
 } from '@/lib/i18n';
 import { api } from '@/lib/api';
 import {
   Calendar,
   Clock,
-  Download,
-  Filter,
   Search,
-  UserCheck,
-  AlertTriangle,
-  Building2,
   MapPin,
   Edit2,
   Plus,
@@ -36,11 +28,9 @@ import {
   FileDown,
   ChevronLeft,
   ChevronRight,
-  ShieldCheck,
   CheckCircle2,
   XCircle,
   Briefcase,
-  Users
 } from 'lucide-react';
 
 interface AttendanceViewProps {
@@ -70,7 +60,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ currentUser, lan
   const [timesheetData, setTimesheetData] = useState<TimesheetReport | null>(null);
   const [loadingTimesheet, setLoadingTimesheet] = useState(false);
   const [searchEmployee, setSearchEmployee] = useState('');
-  const [selectedDeptId, setSelectedDeptId] = useState<number | null>(null);
+  const [selectedDeptId] = useState<number | null>(null);
   const [exportingFormat, setExportingFormat] = useState<string | null>(null);
 
   // Edit Record Modal state
@@ -101,17 +91,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ currentUser, lan
     is_ip_check_enabled: false,
   });
 
-  useEffect(() => {
-    if (activeSubTab === 'my') {
-      loadMyRecords();
-    } else if (activeSubTab === 'team') {
-      loadTimesheet();
-    } else if (activeSubTab === 'settings') {
-      loadOfficesAndSchedules();
-    }
-  }, [activeSubTab, selectedYear, selectedMonth, selectedDeptId]);
-
-  const loadMyRecords = async () => {
+  const loadMyRecords = useCallback(async () => {
     try {
       setLoadingMyRecords(true);
       const res = await api.getAttendanceRecords({ user_id: currentUser.id });
@@ -121,9 +101,9 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ currentUser, lan
     } finally {
       setLoadingMyRecords(false);
     }
-  };
+  }, [currentUser.id]);
 
-  const loadTimesheet = async () => {
+  const loadTimesheet = useCallback(async () => {
     try {
       setLoadingTimesheet(true);
       const res = await api.getAttendanceTimesheet(
@@ -137,20 +117,31 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ currentUser, lan
     } finally {
       setLoadingTimesheet(false);
     }
-  };
+  }, [selectedYear, selectedMonth, selectedDeptId]);
 
-  const loadOfficesAndSchedules = async () => {
+  const loadOfficesAndSchedules = useCallback(async () => {
     try {
       const [officesRes, schedsRes] = await Promise.all([
         api.getOffices(),
         api.getSchedules(),
       ]);
+
       setOffices(officesRes.offices);
       setSchedules(schedsRes.schedules);
     } catch (err) {
       console.error(err);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (activeSubTab === 'my') {
+      loadMyRecords();
+    } else if (activeSubTab === 'team') {
+      loadTimesheet();
+    } else if (activeSubTab === 'settings') {
+      loadOfficesAndSchedules();
+    }
+  }, [activeSubTab, loadMyRecords, loadTimesheet, loadOfficesAndSchedules]);
 
   const handleExport = async (format: 'xlsx' | 'docx' | 'pdf') => {
     try {

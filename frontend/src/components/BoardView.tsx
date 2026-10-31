@@ -8,8 +8,6 @@ import {
   localizePersonName, 
   localizeDepartmentName, 
   localizeBoardTitle, 
-  localizeRole, 
-  localizeDynamicText 
 } from '@/lib/i18n';
 import { api } from '@/lib/api';
 import { CardDetailModal } from '@/components/CardDetailModal';
@@ -17,9 +15,6 @@ import { useBoardWebSocket, WebSocketEvent } from '@/lib/useBoardWebSocket';
 import {
   Plus,
   Search,
-  Filter,
-  MoreVertical,
-  Calendar,
   Clock,
   Paperclip,
   MessageSquare,
@@ -29,7 +24,6 @@ import {
   Trash2,
   AlertCircle,
   Building2,
-  Users,
   ChevronLeft,
   ChevronRight,
   GripVertical
@@ -65,7 +59,7 @@ export const BoardView: React.FC<BoardViewProps> = ({
   // Search & Filter state
   const [search, setSearch] = useState('');
   const [selectedPriority, setSelectedPriority] = useState<string>('');
-  const [selectedAssigneeId, setSelectedAssigneeId] = useState<number | undefined>(undefined);
+  const [selectedAssigneeId] = useState<number | undefined>(undefined);
 
   // Modals & Popovers
   const [selectedCardId, setSelectedCardId] = useState<number | null>(null);
@@ -94,10 +88,6 @@ export const BoardView: React.FC<BoardViewProps> = ({
   const [dragOverColHeaderId, setDragOverColHeaderId] = useState<number | null>(null);
   const [newColumnPosition, setNewColumnPosition] = useState<string>('end');
 
-  useEffect(() => {
-    loadBoard();
-  }, [boardId, search, selectedPriority, selectedAssigneeId]);
-
   const loadBoardSilently = useCallback(async () => {
     try {
       const data = await api.getBoardDetail(boardId, {
@@ -111,7 +101,7 @@ export const BoardView: React.FC<BoardViewProps> = ({
     }
   }, [boardId, search, selectedPriority, selectedAssigneeId]);
 
-  const loadBoard = async () => {
+  const loadBoard = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -126,7 +116,11 @@ export const BoardView: React.FC<BoardViewProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [boardId, search, selectedPriority, selectedAssigneeId]);
+
+  useEffect(() => {
+    loadBoard();
+  }, [loadBoard]);
 
   const handleWebSocketEvent = useCallback((event: WebSocketEvent) => {
     if (event.is_self) {

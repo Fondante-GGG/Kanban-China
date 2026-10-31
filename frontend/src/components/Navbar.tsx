@@ -1,16 +1,17 @@
 'use client';
 
 import React, { useState } from 'react';
-import { User, LanguageCode, BoardSummary, NotificationItem } from '@/types';
+import { User, LanguageCode, BoardSummary, NotificationItem, WorkspaceTab } from '@/types';
 import { 
   translations, 
   localizePersonName, 
   localizeDepartmentName, 
   localizeBoardTitle, 
-  localizeRole, 
   localizeDynamicText 
 } from '@/lib/i18n';
 import { api } from '@/lib/api';
+import { kpiTranslations } from '@/lib/kpi-i18n';
+import { warehouseTranslations } from '@/lib/warehouse-i18n';
 import { 
   Kanban, 
   BarChart3, 
@@ -25,18 +26,18 @@ import {
   Building2,
   Layers,
   Clock
-  , ReceiptText
+  , ReceiptText, UsersRound, ClipboardCheck, KeyRound
 } from 'lucide-react';
 
 interface NavbarProps {
   currentUser: User | null;
-  activeTab: 'board' | 'reports' | 'admin' | 'attendance' | 'finance';
-  setActiveTab: (tab: 'board' | 'reports' | 'admin' | 'attendance' | 'finance') => void;
+  activeTab: WorkspaceTab;
+  setActiveTab: (tab: WorkspaceTab) => void;
   boards: BoardSummary[];
   selectedBoardId: number | null;
   onSelectBoard: (boardId: number) => void;
   lang: LanguageCode;
-  onSelectLang: (lang: LanguageCode) => void;
+  onSelectLang: (lang: LanguageCode) => void | Promise<void>;
   darkMode: boolean;
   onToggleDarkMode: () => void;
   onLogout: () => void;
@@ -65,6 +66,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [showNotifMenu, setShowNotifMenu] = useState(false);
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;
+  const can = (permission: string) => currentUser?.role === 'general_director' || currentUser?.system_permissions?.includes(permission);
+  const hrLabels = { ru: ['Сотрудники', 'Согласования', 'Роли и права'], ky: ['Кызматкерлер', 'Макулдашуулар', 'Ролдор жана укуктар'], 'zh-Hans': ['员工', '审批', '角色与权限'], 'zh-Hant': ['員工', '審批', '角色與權限'] }[lang];
 
   const handleMarkAllRead = async () => {
     try {
@@ -142,8 +145,8 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Navigation Tabs */}
         {currentUser && (
-          <nav className="hidden lg:flex items-center gap-1 p-1 bg-slate-200 dark:bg-slate-800/70 rounded-xl border border-slate-300 dark:border-slate-700/60">
-            <button
+          <nav aria-label={t.appName} className="hidden min-w-0 flex-1 overflow-x-auto overscroll-x-contain [scrollbar-width:thin] lg:mx-3 lg:flex [&>button]:min-h-11 [&>button]:shrink-0 [&>button]:whitespace-nowrap items-center gap-1 p-1 bg-slate-200 dark:bg-slate-800/70 rounded-xl border border-slate-300 dark:border-slate-700/60">
+            {currentUser.role !== 'accountant' && <button
               onClick={() => setActiveTab('board')}
               className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${
                 activeTab === 'board'
@@ -153,14 +156,15 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               <Layers className="w-4 h-4" />
               {t.board}
-            </button>
+            </button>}
 
             <button
               onClick={() => setActiveTab('finance')}
               className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${activeTab === 'finance' ? 'bg-white dark:bg-slate-900 text-black dark:text-white shadow-sm' : 'text-black dark:text-white hover:opacity-80'}`}
             >
-              <ReceiptText className="w-4 h-4" />{lang === 'zh-Hans' ? '费用' : lang === 'zh-Hant' ? '費用' : lang === 'ky' ? 'Чыгымдар' : 'Расходы'}
+              <ReceiptText className="w-4 h-4" />{t.finance}
             </button>
+            {can('procurement.supplier.read') && <button onClick={() => setActiveTab('procurement')} className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${activeTab === 'procurement' ? 'bg-white dark:bg-slate-900 text-black dark:text-white shadow-sm' : 'text-black dark:text-white hover:opacity-80'}`}><Building2 className="w-4 h-4" />{lang === 'ru' ? 'Закупки' : lang === 'ky' ? 'Сатып алуу' : '采购'}</button>}
 
             <button
               onClick={() => setActiveTab('attendance')}
@@ -173,6 +177,12 @@ export const Navbar: React.FC<NavbarProps> = ({
               <Clock className="w-4 h-4" />
               {t.attendance}
             </button>
+
+            {currentUser && (currentUser.role === 'general_director' || currentUser.system_permissions?.some(p => p.startsWith('warehouse.'))) && <button type="button" aria-current={activeTab === 'warehouse' ? 'page' : undefined} onClick={() => setActiveTab('warehouse')} className={`flex min-h-11 items-center gap-2 rounded-lg px-3.5 py-1.5 text-sm font-bold focus-visible:outline-2 focus-visible:outline-blue-600 ${activeTab === 'warehouse' ? 'bg-white dark:bg-slate-900 text-black dark:text-white shadow-sm' : 'text-black dark:text-white'}`}><Building2 className="h-4 w-4" />{warehouseTranslations[lang].title}</button>}
+          {(can('kpi.read') || can('kpi.manage')) && <button type="button" aria-current={activeTab === 'kpi' ? 'page' : undefined} onClick={() => setActiveTab('kpi')} className={`flex min-h-11 items-center gap-2 rounded-lg px-3.5 py-1.5 text-sm font-bold focus-visible:outline-2 focus-visible:outline-blue-600 ${activeTab === 'kpi' ? 'bg-white dark:bg-slate-900 text-black dark:text-white shadow-sm' : 'text-black dark:text-white'}`}><BarChart3 className="h-4 w-4" />{kpiTranslations[lang].title}</button>}
+            {can('hr.employee.read') && <button onClick={() => setActiveTab('hr')} className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${activeTab === 'hr' ? 'bg-white dark:bg-slate-900 text-black dark:text-white shadow-sm' : 'text-black dark:text-white hover:opacity-80'}`}><UsersRound className="w-4 h-4" />{hrLabels[0]}</button>}
+            {can('approval.read') && <button onClick={() => setActiveTab('approvals')} className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${activeTab === 'approvals' ? 'bg-white dark:bg-slate-900 text-black dark:text-white shadow-sm' : 'text-black dark:text-white hover:opacity-80'}`}><ClipboardCheck className="w-4 h-4" />{hrLabels[1]}</button>}
+            {can('rbac.manage') && <button onClick={() => setActiveTab('rbac')} className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${activeTab === 'rbac' ? 'bg-white dark:bg-slate-900 text-black dark:text-white shadow-sm' : 'text-black dark:text-white hover:opacity-80'}`}><KeyRound className="w-4 h-4" />{hrLabels[2]}</button>}
 
             {currentUser.role === 'general_director' && (
               <>
@@ -412,6 +422,17 @@ export const Navbar: React.FC<NavbarProps> = ({
           )}
         </div>
       </div>
+
+      {currentUser && (
+        <nav aria-label={t.appName} className="lg:hidden fixed inset-x-0 bottom-0 z-50 grid grid-flow-col auto-cols-fr [&>button]:min-w-0 [&>button]:whitespace-normal [&>button]:[overflow-wrap:anywhere] [&>button]:leading-tight [&>button]:py-1 border-t border-slate-300 bg-white/95 px-1 pt-1 shadow-[0_-4px_16px_rgba(15,23,42,.12)] backdrop-blur dark:border-slate-700 dark:bg-slate-900/95" style={{ paddingBottom: 'max(0.25rem, env(safe-area-inset-bottom))' }}>
+          {currentUser.role !== 'accountant' && <button type="button" aria-current={activeTab === 'board' ? 'page' : undefined} onClick={() => setActiveTab('board')} className={`min-h-11 rounded-lg text-[10px] font-bold ${activeTab === 'board' ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-200' : 'text-slate-700 dark:text-slate-200'}`}><Layers className="mx-auto mb-0.5 h-4 w-4" />{t.board}</button>}
+          <button type="button" aria-current={activeTab === 'finance' ? 'page' : undefined} onClick={() => setActiveTab('finance')} className={`min-h-11 rounded-lg text-[10px] font-bold ${activeTab === 'finance' ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-200' : 'text-slate-700 dark:text-slate-200'}`}><ReceiptText className="mx-auto mb-0.5 h-4 w-4" />{t.finance}</button>
+          <button type="button" aria-current={activeTab === 'attendance' ? 'page' : undefined} onClick={() => setActiveTab('attendance')} className={`min-h-11 rounded-lg text-[10px] font-bold ${activeTab === 'attendance' ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-200' : 'text-slate-700 dark:text-slate-200'}`}><Clock className="mx-auto mb-0.5 h-4 w-4" />{t.attendance}</button>
+            {(currentUser.role === 'general_director' || currentUser.system_permissions?.some(p => p.startsWith('warehouse.'))) && <button type="button" aria-current={activeTab === 'warehouse' ? 'page' : undefined} onClick={() => setActiveTab('warehouse')} className={`min-h-11 rounded-lg px-2 text-[10px] font-bold ${activeTab === 'warehouse' ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-200' : 'text-slate-700 dark:text-slate-200'}`}><Building2 className="mx-auto mb-0.5 h-4 w-4" />{warehouseTranslations[lang].title}</button>}
+          {(can('kpi.read') || can('kpi.manage')) && <button type="button" aria-current={activeTab === 'kpi' ? 'page' : undefined} onClick={() => setActiveTab('kpi')} className={`min-h-11 rounded-lg px-2 text-[10px] font-bold ${activeTab === 'kpi' ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-200' : 'text-slate-700 dark:text-slate-200'}`}><BarChart3 className="mx-auto mb-0.5 h-4 w-4" />{kpiTranslations[lang].title}</button>}
+          {currentUser.role === 'general_director' && <><button type="button" aria-current={activeTab === 'reports' ? 'page' : undefined} onClick={() => setActiveTab('reports')} className={`min-h-11 rounded-lg text-[10px] font-bold ${activeTab === 'reports' ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-200' : 'text-slate-700 dark:text-slate-200'}`}><BarChart3 className="mx-auto mb-0.5 h-4 w-4" />{t.reports}</button><button type="button" aria-current={activeTab === 'admin' ? 'page' : undefined} onClick={() => setActiveTab('admin')} className={`min-h-11 rounded-lg text-[10px] font-bold ${activeTab === 'admin' ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-200' : 'text-slate-700 dark:text-slate-200'}`}><ShieldCheck className="mx-auto mb-0.5 h-4 w-4" />{t.admin}</button></>}
+        </nav>
+      )}
     </header>
   );
 };

@@ -10,7 +10,10 @@ from backend.presentation.middlewares import login_required_domain
 def analytics_report_view(request):
     if request.method == "GET":
         dept_id = request.GET.get("department_id")
-        dept_id = int(dept_id) if dept_id else None
+        try:
+            dept_id = int(dept_id) if dept_id else None
+        except ValueError:
+            return JsonResponse({"error": "department_id must be an integer"}, status=400)
         dto = ReportFilterDTO(
             period=request.GET.get("period", "month"),
             start_date=request.GET.get("start_date"),
@@ -30,7 +33,10 @@ def export_report_view(request):
     if request.method == "GET":
         fmt = request.GET.get("format", "xlsx")
         dept_id = request.GET.get("department_id")
-        dept_id = int(dept_id) if dept_id else None
+        try:
+            dept_id = int(dept_id) if dept_id else None
+        except ValueError:
+            return JsonResponse({"error": "department_id must be an integer"}, status=400)
         dto = ReportFilterDTO(
             period=request.GET.get("period", "month"),
             start_date=request.GET.get("start_date"),

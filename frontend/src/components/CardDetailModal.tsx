@@ -1,12 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Card, Column, LanguageCode, User, ChecklistItem, Comment, Attachment, ActivityLog } from '@/types';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Column, LanguageCode, User, ChecklistItem, Comment, Attachment, ActivityLog } from '@/types';
 import { 
   translations, 
   getLocalizedText, 
-  toTraditionalChinese, 
-  toSimplifiedChinese, 
   localizePersonName, 
   localizeRole, 
   localizeDynamicText 
@@ -28,8 +26,6 @@ import {
   Download,
   FileText,
   Image as ImageIcon,
-  AlertCircle,
-  CheckCircle2,
   Globe,
   Eye,
   EyeOff
@@ -77,13 +73,7 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
   // File upload state
   const [uploadingFile, setUploadingFile] = useState(false);
 
-  useEffect(() => {
-    if (cardId) {
-      loadCardDetails(cardId);
-    }
-  }, [cardId, lang]);
-
-  const loadCardDetails = async (id: number) => {
+  const loadCardDetails = useCallback(async (id: number) => {
     try {
       setLoading(true);
       const data = await api.getCardDetail(id);
@@ -98,7 +88,13 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [lang]);
+
+  useEffect(() => {
+    if (cardId) {
+      loadCardDetails(cardId);
+    }
+  }, [cardId, loadCardDetails]);
 
   if (!cardId) return null;
 
@@ -121,6 +117,14 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
       onCardUpdated();
     } catch (err: any) {
       alert(err.message || 'Ошибка обновления карточки');
+    }
+  };
+
+  const handleAttachmentDownload = async (attachment: Attachment) => {
+    try {
+      await api.downloadAttachment(attachment.id, attachment.file_name);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : t.attachments);
     }
   };
 
@@ -564,14 +568,13 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
                               {isImg ? <ImageIcon className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
                             </div>
                             <div className="min-w-0">
-                              <a
-                                href={att.file_path}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="block text-xs font-bold text-black dark:text-white truncate hover:text-blue-700 hover:underline"
+                              <button
+                                type="button"
+                                onClick={() => handleAttachmentDownload(att)}
+                                className="block max-w-full text-left text-xs font-bold text-black dark:text-white truncate hover:text-blue-700 hover:underline"
                               >
                                 {att.file_name}
-                              </a>
+                              </button>
                               <div className="text-[10px] text-slate-800 dark:text-slate-300 font-semibold">
                                 {Math.round(att.file_size / 1024)} KB • {att.uploader_name}
                               </div>
@@ -579,17 +582,19 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
                           </div>
 
                           <div className="flex items-center gap-1">
-                            <a
-                              href={att.file_path}
-                              download={att.file_name}
+                            <button
+                              type="button"
+                              aria-label={`Download ${att.file_name}`}
+                              onClick={() => handleAttachmentDownload(att)}
                               className="p-1 text-black hover:text-blue-700 dark:text-slate-300 transition"
                             >
                               <Download className="w-3.5 h-3.5" />
-                            </a>
+                            </button>
                             {canMove && (
                               <button
                                 type="button"
                                 onClick={() => handleDeleteAttachment(att.id)}
+                                aria-label={`Delete ${att.file_name}`}
                                 className="p-1 text-slate-500 hover:text-rose-600 transition"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />

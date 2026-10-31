@@ -4,13 +4,14 @@ from django.views.decorators.csrf import csrf_exempt
 from backend.application.dtos import CommentCreateDTO
 from backend.infrastructure.di.container import container
 from backend.presentation.middlewares import login_required_domain
+from backend.presentation.api.utils import parse_json_body
 
 
 @csrf_exempt
 @login_required_domain
 def comments_create_view(request):
     if request.method == "POST":
-        data = json.loads(request.body.decode("utf-8"))
+        data = parse_json_body(request)
         dto = CommentCreateDTO(
             card_id=data.get("card_id"),
             text=data.get("text", ""),

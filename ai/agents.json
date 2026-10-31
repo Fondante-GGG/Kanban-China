@@ -1,0 +1,37 @@
+[
+  {
+    "id": "TL-01",
+    "role_file": "ai/agents/tech-lead.md",
+    "codex_name": "tech_lead_project_manager",
+    "claude_name": "tech-lead-project-manager",
+    "description": "Руководитель проекта: декомпозиция, ownership, интеграция и приёмка этапа."
+  },
+  {
+    "id": "BE-01",
+    "role_file": "ai/agents/backend-architect.md",
+    "codex_name": "backend_architect_developer",
+    "claude_name": "backend-architect-developer",
+    "description": "Backend-архитектор: границы сервисов, API/events, данные, инварианты и реализация."
+  },
+  {
+    "id": "FE-01",
+    "role_file": "ai/agents/frontend-developer.md",
+    "codex_name": "frontend_developer",
+    "claude_name": "frontend-developer",
+    "description": "Frontend-разработчик: UI, локализация, доступность и интеграция API."
+  },
+  {
+    "id": "UX-01",
+    "role_file": "ai/agents/ui-ux-designer.md",
+    "codex_name": "ui_ux_designer",
+    "claude_name": "ui-ux-designer",
+    "description": "UI/UX-дизайнер: пользовательские сценарии, доступность и handoff перед реализацией."
+  },
+  {
+    "id": "CR-01",
+    "role_file": "ai/agents/senior-code-reviewer.md",
+    "codex_name": "senior_code_reviewer",
+    "claude_name": "senior-code-reviewer",
+    "description": "Независимый reviewer: код, безопасность, контракты, инварианты и доказательства проверок."
+  }
+]

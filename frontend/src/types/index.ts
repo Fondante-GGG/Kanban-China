@@ -17,7 +17,23 @@ export interface User {
   assigned_board_title?: string | null;
   is_active?: boolean;
   created_at?: string;
+  permissions?: string[];
+  system_permissions?: string[];
 }
+
+export type WorkspaceTab = 'board' | 'reports' | 'admin' | 'attendance' | 'finance' | 'hr' | 'approvals' | 'rbac' | 'procurement' | 'kpi' | 'warehouse';
+
+export interface Employee {
+  id: number; employee_no: string; email: string; full_name_ru: string; full_name_zh: string; full_name_ky: string;
+  department_id: number | null; department_name?: string | null; position?: string; phone?: string;
+  status: 'draft' | 'pending_approval' | 'active' | 'terminated' | 'rejected'; user_id?: number | null;
+  created_at?: string; updated_at?: string;
+}
+export interface ApprovalRequest { id: number; business_type: string; business_id: number; status: string; applicant_id?: number; assigned_to_id?: number | null; current_node?: number; applicant_name?: string; created_at?: string; updated_at?: string; actions?: ApprovalAction[]; versions?: Array<{ version_no: number; reason: string; created_at: string }>; }
+export interface ApprovalAction { id: number; action: string; comment?: string; actor_name?: string; created_at?: string; }
+export interface SystemPermission { id: number; code: string; name: string; description?: string; }
+export interface SystemRole { id: number; code: string; name: string; description?: string; active: boolean; permissions: SystemPermission[]; member_count?: number; }
+export interface SystemRoleUser { id: number; full_name: string; email: string; system_role_ids?: number[]; }
 
 export interface Department {
   id: number;
@@ -62,7 +78,7 @@ export interface Comment {
 
 export interface Attachment {
   id: number;
-  file_path: string;
+  file_path?: string;
   file_name: string;
   file_size: number;
   content_type: string;
@@ -324,3 +340,95 @@ export interface TimesheetReport {
   departments: TimesheetDepartment[];
 }
 
+
+
+export type KpiCycle = 'month' | 'quarter' | 'year';
+export type KpiAction = 'self_score' | 'manager_score' | 'review' | 'acknowledge' | 'archive';
+export type KpiStatus = 'self_review' | 'manager_review' | 'senior_review' | 'confirmed';
+export interface KpiTemplateItem { id?: number; name_ru: string; name_zh: string; name_ky: string; weight: string; formula: string; }
+export interface KpiTemplate { is_active: boolean; id: number; name: string; position_code: string; cycle: KpiCycle; items: KpiTemplateItem[]; }
+export interface KpiAssignee { id: number; full_name_ru: string; full_name_zh: string; full_name_ky: string; position: string; department_id: number | null; }
+export interface KpiComments { ru: string; zh: string; ky: string; }
+export interface KpiHistory { id: number; action: string; actor_name: string; created_at: string; old_data: Record<string, unknown>; new_data: Record<string, unknown>; }
+export interface KpiTask {
+  id: number; employee_id: number; template_id: number; year: number; period: string; status: KpiStatus;
+  employee_name_ru: string; employee_name_zh: string; employee_name_ky: string; template_name: string; position_code: string; cycle: KpiCycle;
+  self_score: string | null; manager_score: string | null; final_score: string | null;
+  acknowledged_at: string | null; archived_at: string | null; reviewed_at: string | null;
+  manager_scored_by_id: number | null; reviewed_by_id: number | null; allowed_actions: KpiAction[];
+  comments: { self: KpiComments; manager: KpiComments; review: KpiComments }; history: KpiHistory[];
+}
+
+// Online warehouse API: all selectors and action flags are scoped by the server.
+export interface WarehouseNames { name_ru: string; name_ky: string; name_zh: string; }
+export interface WarehouseRecordNames { warehouse_name_ru: string; warehouse_name_ky: string; warehouse_name_zh: string; }
+export interface WarehouseCatalog {
+  warehouses: Array<WarehouseNames & { id: number; locations: Array<{ id: number; code: string }> }>;
+  skus: Array<WarehouseNames & { id: number; sku_code: string }>;
+  purchase_orders: Array<{ id: number; po_no: string; currency: string; items: Array<WarehouseNames & { id: number; sku_id: number; sku_code: string; ordered_qty: number; received_qty: number; unit_cost?: string }> }>;
+  permissions: string[];
+}
+export interface WarehouseInventory extends WarehouseNames, WarehouseRecordNames { id: number; warehouse_id: number; location_id: number | null; location_code: string | null; sku_id: number; sku_code: string; qty: string; avg_cost?: string; batches: Array<{ batch_no: string; expiry_date: string; qty: string }> }
+export interface WarehouseMovement extends WarehouseNames, WarehouseRecordNames { id: number; warehouse_id: number; location_id: number | null; location_code: string | null; sku_id: number; sku_code: string; qty_delta: string; unit_cost?: string; movement_type: string; source_type: string; source_id: number; source_no?: string | null; reason: string; posted_at: string }
+export interface WarehouseReceiptLine extends WarehouseNames { id: number; po_item_id: number; sku_id: number; sku_code: string; qty: number; location_id: number | null; location_code: string | null; batch_no: string; expiry_date: string | null; discrepancy_reason: string; unit_cost?: string }
+export interface WarehouseReceipt extends WarehouseRecordNames { id: number; receipt_no: string; purchase_order_id: number; po_no: string; warehouse_id: number; status: string; comment: string; received_at: string; allowed_actions: string[]; items: WarehouseReceiptLine[] }
+export interface WarehouseCount extends WarehouseRecordNames { id: number; count_no: string; warehouse_id: number; status: string; created_at: string; allowed_actions: string[]; items: Array<WarehouseNames & { sku_id: number; sku_code: string; system_qty: string; actual_qty: string; reason: string }> }
+export interface WarehouseExpiry { as_of: string; days: number; batches_count?: number; certificates_count?: number; truncated?: boolean; batches: Array<WarehouseNames & Partial<WarehouseRecordNames> & { id: number; warehouse_id: number; location_id?: number | null; location_code?: string | null; sku_id: number; sku_code: string; batch_no: string; expiry_date: string; qty: string; expired: boolean }>; certificates: Array<{ id: number; sku_id: number; sku_code: string; number: string; expires_at: string; expired: boolean }> }
+export interface WarehouseListQuery { warehouse_id?: number; offset?: number; limit?: number; id?: number }
+export interface WarehouseReceiptInput { receipt_no: string; purchase_order_id: number; warehouse_id: number; comment: string; items: Array<{ po_item_id: number; qty: number; location_id?: number; batch_no?: string; expiry_date?: string; discrepancy_reason: string }> }
+export interface WarehouseCountInput { count_no: string; warehouse_id: number; items: Array<{ sku_id: number; actual_qty: string; reason: string }> }
+
+export type TransferStatus = 'draft' | 'pending_approval' | 'approved' | 'in_transit' | 'received' | 'rejected' | 'cancelled';
+export type TransferAction = 'edit' | 'submit' | 'review' | 'dispatch' | 'receive' | 'cancel';
+export interface TransferWarehouse extends WarehouseNames { id: number; locations: Array<{ id: number; code: string }> }
+export interface TransferCatalog {
+  sources: TransferWarehouse[]; destinations: TransferWarehouse[];
+  skus: Array<WarehouseNames & { id: number; sku_code: string }>;
+  stock: Array<{ sku_id: number; warehouse_id: number; location_id: number | null; location_code: string | null; qty: string; unbatched_qty: string; batches: Array<{ batch_no: string; expiry_date: string; qty: string }> }>;
+  permissions: string[];
+}
+export interface TransferLine extends WarehouseNames {
+  id: number; sku_id: number; sku_code: string; qty: number; source_location_id: number | null; source_location_code: string | null;
+  destination_location_id: number | null; destination_location_code: string | null; batch_no: string; expiry_date: string | null;
+  in_transit_qty: string; unit_cost?: string;
+}
+export interface StockTransfer {
+  id: number; transfer_no: string; source_warehouse_id: number; destination_warehouse_id: number;
+  source_name_ru: string; source_name_ky: string; source_name_zh: string;
+  destination_name_ru: string; destination_name_ky: string; destination_name_zh: string;
+  status: TransferStatus; created_at: string; approved_at: string | null; dispatched_at: string | null; received_at: string | null;
+  created_by_name: string; approved_by_name: string | null; dispatched_by_name: string | null; received_by_name: string | null;
+  comment: string; review_comment: string; in_transit_qty: string; allowed_actions: TransferAction[]; items: TransferLine[];
+  history: Array<{ id: number; action: string; actor_name: string; created_at: string; comment: string }>;
+}
+export interface TransferInput {
+  transfer_no: string; source_warehouse_id: number; destination_warehouse_id: number; comment: string;
+  items: Array<{ sku_id: number; qty: number; source_location_id?: number; destination_location_id?: number; batch_no?: string; expiry_date?: string }>;
+}
+export interface TransferQuery extends WarehouseListQuery { status?: TransferStatus }
+
+export type WriteoffStatus = 'draft' | 'pending_approval' | 'approved' | 'posted' | 'rejected' | 'cancelled';
+export type WriteoffAction = 'edit' | 'upload_photo' | 'delete_photo' | 'submit' | 'review' | 'post' | 'cancel';
+export interface WriteoffCatalog {
+  warehouses: TransferWarehouse[];
+  skus: Array<WarehouseNames & { id: number; sku_code: string }>;
+  stock: TransferCatalog['stock'];
+  permissions: string[];
+}
+export interface WriteoffLine extends WarehouseNames {
+  id: number; sku_id: number; sku_code: string; qty: string; location_id: number | null; location_code: string | null;
+  batch_no: string; expiry_date: string | null; unit_cost?: string;
+}
+export interface WriteoffPhoto { id: number; file_name: string; content_type: string; size: number; download_url: string }
+export interface StockWriteoff extends WarehouseRecordNames {
+  id: number; writeoff_no: string; warehouse_id: number; status: WriteoffStatus; reason: string; review_comment: string;
+  created_at: string; created_by_name: string; approved_at: string | null; approved_by_name: string | null;
+  posted_at: string | null; posted_by_name: string | null; allowed_actions: WriteoffAction[];
+  items: WriteoffLine[]; photos: WriteoffPhoto[];
+  history: Array<{ id: number; action: string; actor_name: string; created_at: string; comment: string }>;
+}
+export interface WriteoffInput {
+  writeoff_no: string; warehouse_id: number; reason: string;
+  items: Array<{ sku_id: number; qty: string; location_id?: number; batch_no?: string; expiry_date?: string }>;
+}
+export interface WriteoffQuery extends WarehouseListQuery { status?: WriteoffStatus }

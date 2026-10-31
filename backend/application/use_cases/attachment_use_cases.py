@@ -26,7 +26,7 @@ class UploadAttachmentUseCase:
 
             column = self.uow.columns.get_by_id(card.column_id)
             assigned_board_id = self.uow.users.get_assigned_board_id(current_user.id)
-            AccessPolicyService.ensure_can_move_card(current_user, column.board_id, assigned_board_id)
+            AccessPolicyService.ensure_can_manage_cards(current_user, column.board_id, assigned_board_id)
 
             attachment = Attachment(
                 id=None,
@@ -72,7 +72,10 @@ class DeleteAttachmentUseCase:
             attachment = self.uow.attachments.get_by_id(attachment_id)
             if not attachment:
                 raise EntityNotFoundException("Attachment", attachment_id)
-
+            card = self.uow.cards.get_by_id(attachment.card_id)
+            column = self.uow.columns.get_by_id(card.column_id)
+            assigned_board_id = self.uow.users.get_assigned_board_id(current_user.id)
+            AccessPolicyService.ensure_can_manage_cards(current_user, column.board_id, assigned_board_id)
             deleted = self.uow.attachments.delete(attachment_id)
             self.uow.commit()
             return deleted

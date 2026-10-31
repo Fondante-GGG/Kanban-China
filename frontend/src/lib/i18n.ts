@@ -1,10 +1,24 @@
 import { LanguageCode } from '@/types';
 
+export interface FinanceTranslations {
+  title: string; subtitle: string; export: string; add: string; total: string;
+  records: string; personal: string; pending: string; category: string; supplier: string;
+  amount: string; personalOption: string; companyOption: string; description: string;
+  save: string; dateEmployee: string; expense: string; status: string; open: string;
+  noExpenses: string; documents: string; noDocuments: string; bankReceipt: string;
+  approve: string; reject: string; pay: string; comment: string; transaction: string;
+  company: string; draft: string; under_review: string; needs_info: string;
+  approved: string; rejected: string; paid: string; personalCard: string;
+  personalCash: string; corporateCard: string; bankTransfer: string; companyCash: string;
+  closeDialog: string; submitForReview: string; approveExpense: string;
+}
+
 export interface Translations {
   appName: string;
   board: string;
   reports: string;
   admin: string;
+  finance: string;
   login: string;
   logout: string;
   switchAccount: string;
@@ -115,6 +129,10 @@ export interface Translations {
   grantConsent: string;
   revokeConsent: string;
   radiusMeters: string;
+  loginSubtitle: string;
+  loggingIn: string;
+  closeDialog: string;
+  financeText: FinanceTranslations;
 }
 
 export const translations: Record<LanguageCode, Translations> = {
@@ -123,6 +141,7 @@ export const translations: Record<LanguageCode, Translations> = {
     board: "Канбан-доска",
     reports: "Отчёты и аналитика",
     admin: "Администрирование",
+    finance: "Расходы",
     login: "Войти",
     logout: "Выйти",
     switchAccount: "Быстрое переключение аккаунта",
@@ -231,12 +250,17 @@ export const translations: Record<LanguageCode, Translations> = {
     grantConsent: "Дать согласие",
     revokeConsent: "Отозвать согласие",
     radiusMeters: "Радиус (м)",
+    loginSubtitle: "Канбан-система управления задачами с ролевым доступом и машинным переводом",
+    loggingIn: "Вход...",
+    closeDialog: "Закрыть окно",
+    financeText: { title: "Расходы и возмещения", subtitle: "Чеки, покупки компании и возврат личных расходов сотрудников.", export: "Выгрузить", add: "Добавить расход", total: "Всего расходов", records: "Записей", personal: "Личные средства", pending: "К возврату", category: "Категория: канцелярия, транспорт…", supplier: "Поставщик", amount: "Сумма", personalOption: "Личные средства — нужен возврат", companyOption: "Средства компании", description: "Что купили и для чего", save: "Сохранить расход", dateEmployee: "Дата / сотрудник", expense: "Расход", status: "Статус", open: "Открыть", noExpenses: "Расходов пока нет.", documents: "Документы", noDocuments: "нет", bankReceipt: "Чек банка", approve: "Согласовать", reject: "Отклонить", pay: "Отметить возврат денег", comment: "Комментарий для сотрудника:", transaction: "Номер банковской операции:", company: "Компания", draft: "Черновик", under_review: "На проверке", needs_info: "Нужны уточнения", approved: "Согласовано", rejected: "Отклонено", paid: "Выплачено", personalCard: "Личная карта", personalCash: "Личные наличные", corporateCard: "Корпоративная карта", bankTransfer: "Банковский перевод", companyCash: "Наличные компании", closeDialog: "Закрыть окно", submitForReview: "Отправить на проверку", approveExpense: "Согласовать расход" },
   },
   'zh-Hans': {
     appName: "Yrys 看板系统",
     board: "任务看板",
     reports: "统计与报表",
     admin: "系统管理",
+    finance: "费用",
     login: "登录",
     logout: "退出登录",
     switchAccount: "快速切换测试账号",
@@ -345,12 +369,17 @@ export const translations: Record<LanguageCode, Translations> = {
     grantConsent: "签署同意书",
     revokeConsent: "撤回授权",
     radiusMeters: "有效半径 (米)",
+    loginSubtitle: "支持角色权限和机器翻译的企业看板任务系统",
+    loggingIn: "登录中...",
+    closeDialog: "关闭窗口",
+    financeText: { title: "费用与报销", subtitle: "收据、公司采购及员工个人支出报销。", export: "导出", add: "添加费用", total: "总费用", records: "记录数", personal: "个人垫付", pending: "待报销", category: "类别：办公用品、交通…", supplier: "供应商", amount: "金额", personalOption: "员工个人资金 — 需报销", companyOption: "公司资金", description: "购买内容及用途", save: "保存费用", dateEmployee: "日期 / 员工", expense: "费用", status: "状态", open: "打开", noExpenses: "暂无费用记录。", documents: "文件", noDocuments: "无", bankReceipt: "银行回单", approve: "批准", reject: "拒绝", pay: "标记为已报销", comment: "给员工的说明：", transaction: "银行交易号码：", company: "公司", draft: "草稿", under_review: "审核中", needs_info: "需要补充信息", approved: "已批准", rejected: "已拒绝", paid: "已支付", personalCard: "个人银行卡", personalCash: "个人现金", corporateCard: "公司卡", bankTransfer: "银行转账", companyCash: "公司现金", closeDialog: "关闭窗口", submitForReview: "提交审核", approveExpense: "批准费用" },
   },
   'zh-Hant': {
     appName: "Yrys 看板系統",
     board: "任務看板",
     reports: "統計與報表",
     admin: "系統管理",
+    finance: "費用",
     login: "登入",
     logout: "登出系統",
     switchAccount: "快速切換測試帳號",
@@ -459,12 +488,17 @@ export const translations: Record<LanguageCode, Translations> = {
     grantConsent: "簽署同意書",
     revokeConsent: "撤回授權",
     radiusMeters: "有效半徑 (公尺)",
+    loginSubtitle: "支援角色權限和機器翻譯的企業看板任務系統",
+    loggingIn: "登入中...",
+    closeDialog: "關閉視窗",
+    financeText: { title: "費用與報銷", subtitle: "收據、公司採購及員工個人支出報銷。", export: "匯出", add: "新增費用", total: "總費用", records: "記錄數", personal: "個人墊付", pending: "待報銷", category: "類別：辦公用品、交通…", supplier: "供應商", amount: "金額", personalOption: "員工個人資金 — 需報銷", companyOption: "公司資金", description: "購買內容及用途", save: "儲存費用", dateEmployee: "日期 / 員工", expense: "費用", status: "狀態", open: "開啟", noExpenses: "暫無費用記錄。", documents: "文件", noDocuments: "無", bankReceipt: "銀行回單", approve: "批准", reject: "拒絕", pay: "標記為已報銷", comment: "給員工的說明：", transaction: "銀行交易號碼：", company: "公司", draft: "草稿", under_review: "審核中", needs_info: "需要補充資訊", approved: "已批准", rejected: "已拒絕", paid: "已支付", personalCard: "個人銀行卡", personalCash: "個人現金", corporateCard: "公司卡", bankTransfer: "銀行轉帳", companyCash: "公司現金", closeDialog: "關閉視窗", submitForReview: "提交審核", approveExpense: "批准費用" },
   },
   ky: {
     appName: "Yrys Канбан",
     board: "Канбан тактасы",
     reports: "Отчеттор жана статистика",
     admin: "Администрациялоо",
+    finance: "Чыгымдар",
     login: "Кирүү",
     logout: "Чыгуу",
     switchAccount: "Аккаунтту тез алмаштыруу",
@@ -573,7 +607,31 @@ export const translations: Record<LanguageCode, Translations> = {
     grantConsent: "Макулдук берүү",
     revokeConsent: "Макулдукту артка кайтаруу",
     radiusMeters: "Радиус (метр)",
+    loginSubtitle: "Ролдук мүмкүнчүлүктөрү жана машиналык котормосу бар корпоративдик канбан системасы",
+    loggingIn: "Кирүүдө...",
+    closeDialog: "Терезени жабуу",
+    financeText: { title: "Чыгымдар жана компенсациялар", subtitle: "Чектер, компаниянын сатып алуулары жана кызматкерлердин жеке чыгымдарын кайтаруу.", export: "Жүктөп алуу", add: "Чыгым кошуу", total: "Жалпы чыгымдар", records: "Жазуулар", personal: "Жеке каражат", pending: "Кайтарууга", category: "Категория: кеңсе буюмдары, транспорт…", supplier: "Жеткирүүчү", amount: "Сумма", personalOption: "Жеке каражат — кайтаруу керек", companyOption: "Компаниянын каражаты", description: "Эмне жана эмне үчүн сатылып алынды", save: "Чыгымды сактоо", dateEmployee: "Дата / кызматкер", expense: "Чыгым", status: "Статус", open: "Ачуу", noExpenses: "Азырынча чыгымдар жок.", documents: "Документтер", noDocuments: "жок", bankReceipt: "Банк чеги", approve: "Бекитүү", reject: "Четке кагуу", pay: "Акча кайтарылганын белгилөө", comment: "Кызматкер үчүн комментарий:", transaction: "Банк операциясынын номери:", company: "Компания", draft: "Черновик", under_review: "Текшерүүдө", needs_info: "Тактоо керек", approved: "Бекитилди", rejected: "Четке кагылды", paid: "Төлөндү", personalCard: "Жеке карта", personalCash: "Жеке накталай акча", corporateCard: "Компаниянын картасы", bankTransfer: "Банктык которуу", companyCash: "Компаниянын накталай акчасы", closeDialog: "Терезени жабуу", submitForReview: "Текшерүүгө жөнөтүү", approveExpense: "Чыгымды бекитүү" },
   }
+};
+
+export const hrTranslations: Record<LanguageCode, Record<string, string>> = {
+  ru: { people:'Сотрудники', approvals:'Согласования', permissions:'Роли и права', addEmployee:'Добавить сотрудника', search:'Поиск', position:'Должность', employeeNo:'Табельный номер', employeeStatus:'Статус сотрудника', draft:'Черновик', pending_approval:'На согласовании', active:'Активен', terminated:'Уволен', rejected:'Возвращён', open:'Открыть', saveDraft:'Сохранить черновик', submitHire:'Отправить на согласование', termination:'Увольнение', submitTermination:'Отправить увольнение', reason:'Причина', awaiting:'Ожидают моего решения', submitted:'Отправленные', completed:'Завершённые', approve:'Согласовать', reject:'Отклонить', return:'Вернуть на доработку', comment:'Комментарий', requiredComment:'Укажите комментарий', loading:'Загрузка…', empty:'Нет данных', retry:'Повторить', forbidden:'Недостаточно прав для этого раздела', roleName:'Название роли', roleCode:'Код роли', description:'Описание', createRole:'Создать роль', savePermissions:'Сохранить права', systemPermissions:'Права модулей не дают доступа к чужим канбан-доскам.', actions:'Действия', employee:'Сотрудник', department:'Отдел', status:'Статус', email:'Email', phone:'Телефон', close:'Закрыть', cancel:'Отмена', details:'Детали', history:'История решений', edit:'Редактировать', assignRoles:'Назначить роли пользователю', selectUser:'Выберите пользователя', noPermissions:'Нет доступных прав', lifecycle:'История жизненного цикла', noHistory:'История пока отсутствует' },
+  ky: { people:'Кызматкерлер', approvals:'Макулдашуулар', permissions:'Ролдор жана укуктар', addEmployee:'Кызматкер кошуу', search:'Издөө', position:'Кызматы', employeeNo:'Табелдик номер', employeeStatus:'Кызматкердин абалы', draft:'Долбоор', pending_approval:'Макулдашууда', active:'Активдүү', terminated:'Жумуштан бошотулган', rejected:'Кайтарылды', open:'Ачуу', saveDraft:'Долбоорду сактоо', submitHire:'Макулдашууга жөнөтүү', termination:'Жумуштан бошотуу', submitTermination:'Бошотууну жөнөтүү', reason:'Себеп', awaiting:'Менин чечимимди күтөт', submitted:'Жөнөтүлгөн', completed:'Аяктаган', approve:'Макулдоо', reject:'Четке кагуу', return:'Толуктоого кайтаруу', comment:'Комментарий', requiredComment:'Комментарий жазыңыз', loading:'Жүктөлүүдө…', empty:'Маалымат жок', retry:'Кайталоо', forbidden:'Бул бөлүмгө укук жок', roleName:'Ролдун аталышы', roleCode:'Ролдун коду', description:'Сыпаттама', createRole:'Роль түзүү', savePermissions:'Укуктарды сактоо', systemPermissions:'Модулдук укуктар башка канбан-доскаларга жеткилик бербейт.', actions:'Аракеттер', employee:'Кызматкер', department:'Бөлүм', status:'Абалы', email:'Email', phone:'Телефон', close:'Жабуу', cancel:'Жокко чыгаруу', details:'Маалымат', history:'Чечимдер тарыхы', edit:'Түзөтүү', assignRoles:'Колдонуучуга ролдорду берүү', selectUser:'Колдонуучуну тандаңыз', noPermissions:'Укуктар жок', lifecycle:'Өмүрлүк цикл тарыхы', noHistory:'Тарых азырынча жок' },
+  'zh-Hans': { people:'员工', approvals:'审批', permissions:'角色与权限', addEmployee:'添加员工', search:'搜索', position:'职位', employeeNo:'工号', employeeStatus:'员工状态', draft:'草稿', pending_approval:'审批中', active:'在职', terminated:'已离职', rejected:'已退回', open:'打开', saveDraft:'保存草稿', submitHire:'提交入职审批', termination:'离职', submitTermination:'提交离职审批', reason:'原因', awaiting:'等待我处理', submitted:'我提交的', completed:'已完成', approve:'批准', reject:'拒绝', return:'退回修改', comment:'备注', requiredComment:'请填写备注', loading:'加载中…', empty:'暂无数据', retry:'重试', forbidden:'您没有访问此页面的权限', roleName:'角色名称', roleCode:'角色代码', description:'说明', createRole:'创建角色', savePermissions:'保存权限', systemPermissions:'模块权限不会授予其他看板的访问权。', actions:'操作', employee:'员工', department:'部门', status:'状态', email:'邮箱', phone:'电话', close:'关闭', cancel:'取消', details:'详情', history:'审批历史', edit:'编辑', assignRoles:'为用户分配角色', selectUser:'选择用户', noPermissions:'没有可用权限', lifecycle:'生命周期历史', noHistory:'暂无历史记录' },
+  'zh-Hant': { people:'員工', approvals:'審批', permissions:'角色與權限', addEmployee:'新增員工', search:'搜尋', position:'職位', employeeNo:'工號', employeeStatus:'員工狀態', draft:'草稿', pending_approval:'審批中', active:'在職', terminated:'已離職', rejected:'已退回', open:'開啟', saveDraft:'儲存草稿', submitHire:'提交入職審批', termination:'離職', submitTermination:'提交離職審批', reason:'原因', awaiting:'等待我處理', submitted:'我提交的', completed:'已完成', approve:'批准', reject:'拒絕', return:'退回修改', comment:'備註', requiredComment:'請填寫備註', loading:'載入中…', empty:'暫無資料', retry:'重試', forbidden:'您沒有存取此頁面的權限', roleName:'角色名稱', roleCode:'角色代碼', description:'說明', createRole:'建立角色', savePermissions:'儲存權限', systemPermissions:'模組權限不會授予其他看板的存取權。', actions:'操作', employee:'員工', department:'部門', status:'狀態', email:'信箱', phone:'電話', close:'關閉', cancel:'取消', details:'詳情', history:'審批歷史', edit:'編輯', assignRoles:'指派使用者角色', selectUser:'選擇使用者', noPermissions:'沒有可用權限', lifecycle:'生命週期歷史', noHistory:'尚無歷史記錄' },
+};
+
+/** Finance workflow labels kept separately while the legacy finance catalog is migrated. */
+export const financeWorkflowTranslations: Record<LanguageCode, {
+  requestInfo: string; comment: string; commentRequired: string; sendRequest: string;
+  paymentDetails: string; paymentAmount: string; paymentMethod: string; recordPayment: string;
+  documentType: string; kkmReceipt: string; invoice: string; waybill: string; otherDocument: string;
+  upload: string; actions: string;
+}> = {
+  ru: { requestInfo: 'Запросить уточнения', comment: 'Комментарий для сотрудника', commentRequired: 'Укажите комментарий.', sendRequest: 'Отправить запрос', paymentDetails: 'Фиксация выплаты', paymentAmount: 'Сумма выплаты', paymentMethod: 'Способ выплаты', recordPayment: 'Зафиксировать выплату', documentType: 'Тип документа', kkmReceipt: 'ККМ-чек', invoice: 'Счёт', waybill: 'Накладная', otherDocument: 'Другой документ', upload: 'Загрузить', actions: 'Действия' },
+  ky: { requestInfo: 'Тактоо суроо', comment: 'Кызматкер үчүн комментарий', commentRequired: 'Комментарий жазыңыз.', sendRequest: 'Сурам жөнөтүү', paymentDetails: 'Төлөмдү каттоо', paymentAmount: 'Төлөм суммасы', paymentMethod: 'Төлөм ыкмасы', recordPayment: 'Төлөмдү каттоо', documentType: 'Документтин түрү', kkmReceipt: 'ККМ чеги', invoice: 'Эсеп', waybill: 'Коштомо кагаз', otherDocument: 'Башка документ', upload: 'Жүктөө', actions: 'Аракеттер' },
+  'zh-Hans': { requestInfo: '请求补充信息', comment: '给员工的说明', commentRequired: '请填写说明。', sendRequest: '发送请求', paymentDetails: '记录报销付款', paymentAmount: '付款金额', paymentMethod: '付款方式', recordPayment: '记录付款', documentType: '文件类型', kkmReceipt: '收银小票', invoice: '发票', waybill: '送货单', otherDocument: '其他文件', upload: '上传', actions: '操作' },
+  'zh-Hant': { requestInfo: '要求補充資訊', comment: '給員工的說明', commentRequired: '請填寫說明。', sendRequest: '傳送要求', paymentDetails: '記錄報銷付款', paymentAmount: '付款金額', paymentMethod: '付款方式', recordPayment: '記錄付款', documentType: '文件類型', kkmReceipt: '收銀收據', invoice: '發票', waybill: '送貨單', otherDocument: '其他文件', upload: '上傳', actions: '操作' },
 };
 
 export * from './translator';

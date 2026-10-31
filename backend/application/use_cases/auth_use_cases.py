@@ -61,6 +61,35 @@ class GetProfileUseCase:
             }
 
 
+class UpdateInterfaceLanguageUseCase:
+    SUPPORTED_LANGUAGES = {"ru", "ky", "zh-Hans", "zh-Hant"}
+
+    def __init__(self, uow: IUnitOfWork):
+        self.uow = uow
+
+    def execute(self, user_id: int, interface_language: str) -> Dict[str, Any]:
+        if interface_language not in self.SUPPORTED_LANGUAGES:
+            raise ValidationException("interface_language must be ru, ky, zh-Hans or zh-Hant.")
+        with self.uow:
+            user = self.uow.users.get_by_id(user_id)
+            if not user:
+                raise EntityNotFoundException("User", user_id)
+            user.interface_language = interface_language
+            updated = self.uow.users.update(user)
+            self.uow.commit()
+            assigned_board_id = self.uow.users.get_assigned_board_id(updated.id)
+            return {
+                "id": updated.id,
+                "email": updated.email,
+                "full_name": updated.full_name,
+                "role": updated.role,
+                "department_id": updated.department_id,
+                "phone": updated.phone,
+                "interface_language": updated.interface_language,
+                "assigned_board_id": assigned_board_id,
+            }
+
+
 class ResetPasswordUseCase:
     def __init__(self, uow: IUnitOfWork):
         self.uow = uow

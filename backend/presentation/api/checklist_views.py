@@ -6,13 +6,14 @@ from backend.infrastructure.di.container import container
 from backend.infrastructure.persistence.models import CardModel, ChecklistModel
 from backend.presentation.middlewares import login_required_domain
 from backend.presentation.websockets.broadcaster import broadcast_to_board
+from backend.presentation.api.utils import parse_json_body
 
 
 @csrf_exempt
 @login_required_domain
 def checklists_create_view(request):
     if request.method == "POST":
-        data = json.loads(request.body.decode("utf-8"))
+        data = parse_json_body(request)
         dto = ChecklistItemCreateDTO(
             card_id=data.get("card_id"),
             title=data.get("title", ""),

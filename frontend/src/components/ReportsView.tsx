@@ -1,12 +1,11 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { AnalyticsData, LanguageCode, User, DepartmentReport, EmployeeReport } from '@/types';
 import { 
   translations, 
   localizePersonName, 
   localizeDepartmentName, 
-  localizeRole, 
   localizeDynamicText 
 } from '@/lib/i18n';
 import { api } from '@/lib/api';
@@ -16,9 +15,6 @@ import {
   Clock,
   AlertTriangle,
   Bug,
-  Percent,
-  Download,
-  Calendar,
   Building2,
   Users,
   FileSpreadsheet,
@@ -41,11 +37,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ lang, currentUser }) =
   const [exportingFormat, setExportingFormat] = useState<string | null>(null);
   const [searchEmployee, setSearchEmployee] = useState('');
 
-  useEffect(() => {
-    loadReports();
-  }, [period]);
-
-  const loadReports = async () => {
+  const loadReports = useCallback(async () => {
     try {
       setLoading(true);
       const res = await api.getAnalytics(period);
@@ -55,7 +47,11 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ lang, currentUser }) =
     } finally {
       setLoading(false);
     }
-  };
+  }, [period]);
+
+  useEffect(() => {
+    loadReports();
+  }, [loadReports]);
 
   const handleExport = async (format: 'xlsx' | 'docx' | 'pdf') => {
     try {
